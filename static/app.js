@@ -94,6 +94,7 @@
     readerExitBtn: document.getElementById('reader-exit-btn'),
     readerHomeBtn: document.getElementById('reader-home-btn'),
     readerDockHomeBtn: document.getElementById('reader-dock-home-btn'),
+    readerEpisodesBtn: document.getElementById('reader-episodes-btn'),
     readerMangaTitle: document.getElementById('reader-manga-title'),
     readerChapterTitle: document.getElementById('reader-chapter-title'),
     readerModeToggle: document.getElementById('reader-mode-toggle'),
@@ -110,7 +111,15 @@
     readerPrevPage: document.getElementById('reader-prev-page'),
     readerNextPage: document.getElementById('reader-next-page'),
     readerChapterSelect: document.getElementById('reader-chapter-select'),
-    readerPageCounter: document.getElementById('reader-page-counter')
+    readerPageCounter: document.getElementById('reader-page-counter'),
+
+    // Episode Drawer
+    episodeDrawer: document.getElementById('episode-drawer'),
+    episodeDrawerBackdrop: document.getElementById('episode-drawer-backdrop'),
+    episodeDrawerClose: document.getElementById('episode-drawer-close'),
+    episodeDrawerComicTitle: document.getElementById('episode-drawer-comic-title'),
+    episodeSearchInput: document.getElementById('episode-search-input'),
+    episodeDrawerList: document.getElementById('episode-drawer-list')
   };
 
   // Toast Notification
@@ -123,6 +132,30 @@
     toastTimer = setTimeout(() => {
       DOM.toast.hidden = true;
     }, duration);
+  }
+
+  // Format Relative Timestamp
+  function formatRelativeTime(dateStr) {
+    if (!dateStr) return '';
+    try {
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) return dateStr;
+      const now = new Date();
+      const diffSec = Math.floor((now.getTime() - date.getTime()) / 1000);
+      if (diffSec < 60) return 'Baru saja';
+      const diffMin = Math.floor(diffSec / 60);
+      if (diffMin < 60) return `${diffMin} mnt lalu`;
+      const diffHour = Math.floor(diffMin / 60);
+      if (diffHour < 24) return `${diffHour} jam lalu`;
+      const diffDay = Math.floor(diffHour / 24);
+      if (diffDay === 1) return 'Kemarin';
+      if (diffDay < 7) return `${diffDay} hari lalu`;
+      const diffWeek = Math.floor(diffDay / 7);
+      if (diffWeek < 4) return `${diffWeek} mgg lalu`;
+      return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+    } catch {
+      return '';
+    }
   }
 
   // UI State Helpers
@@ -414,6 +447,13 @@
         format = 'Manhua';
       }
 
+      const ch1Num = item.latest_chapter_number || item.latest_chapter || '';
+      const ch1Time = formatRelativeTime(item.latest_chapter_time || item.updated_at);
+      let ch2Num = '';
+      if (ch1Num && Number(ch1Num) > 1) {
+        ch2Num = Math.floor(Number(ch1Num)) === Number(ch1Num) ? (Number(ch1Num) - 1) : (Number(ch1Num) - 1).toFixed(1);
+      }
+
       card.innerHTML = `
         <div class="card-poster-wrap">
           <img class="card-poster" src="${posterUrl}" alt="Sampul ${escapeHtml(item.title || '')}" loading="lazy" referrerpolicy="no-referrer">
@@ -428,8 +468,42 @@
             <span class="card-ch-pill">${latestCh ? `Ch. ${latestCh}` : 'Tersedia'}</span>
             ${rating ? `<span class="card-rating">&#9733; ${rating}</span>` : ''}
           </div>
+          ${ch1Num ? `
+          <div class="card-chapters-list">
+            <button type="button" class="card-ch-btn card-ch-btn-1" aria-label="Baca Chapter ${ch1Num}">
+              <span class="card-ch-num">Ch. ${ch1Num}</span>
+              <span class="card-ch-time">${ch1Time || 'Baru'}</span>
+            </button>
+            ${ch2Num ? `
+            <button type="button" class="card-ch-btn card-ch-btn-2" aria-label="Baca Chapter ${ch2Num}">
+              <span class="card-ch-num">Ch. ${ch2Num}</span>
+              <span class="card-ch-time">Sebelumnya</span>
+            </button>
+            ` : ''}
+          </div>
+          ` : ''}
         </div>
       `;
+
+      const ch1Btn = card.querySelector('.card-ch-btn-1');
+      if (ch1Btn) {
+        ch1Btn.onclick = (e) => {
+          e.stopPropagation();
+          if (item.latest_chapter_id) {
+            openReader(item.manga_id, item.latest_chapter_id, ch1Num, state.readMode);
+          } else {
+            openDirectChapterByNumber(item.manga_id, ch1Num);
+          }
+        };
+      }
+
+      const ch2Btn = card.querySelector('.card-ch-btn-2');
+      if (ch2Btn) {
+        ch2Btn.onclick = (e) => {
+          e.stopPropagation();
+          openDirectChapterByNumber(item.manga_id, ch2Num);
+        };
+      }
 
       const clickHandler = () => openMangaDetail(item.manga_id);
       card.onclick = clickHandler;
@@ -456,6 +530,12 @@
       const latestCh = item.latest_chapter_number || 0;
       const hasNew = Number(item.has_new_update) === 1;
 
+      const ch1Num = item.latest_chapter_number || 0;
+      let ch2Num = '';
+      if (ch1Num && Number(ch1Num) > 1) {
+        ch2Num = Math.floor(Number(ch1Num)) === Number(ch1Num) ? (Number(ch1Num) - 1) : (Number(ch1Num) - 1).toFixed(1);
+      }
+
       card.innerHTML = `
         <div class="card-poster-wrap">
           <img class="card-poster" src="${posterUrl}" alt="Sampul ${escapeHtml(item.manga_title || '')}" loading="lazy" referrerpolicy="no-referrer">
@@ -469,8 +549,38 @@
             <span class="card-ch-pill">Ch. ${latestCh}</span>
             ${hasNew ? '<span style="color:var(--accent-emerald); font-weight:700;">Baru</span>' : ''}
           </div>
+          ${ch1Num ? `
+          <div class="card-chapters-list">
+            <button type="button" class="card-ch-btn card-ch-btn-1" aria-label="Baca Chapter ${ch1Num}">
+              <span class="card-ch-num">Ch. ${ch1Num}</span>
+              <span class="card-ch-time">${hasNew ? 'Update' : 'Terbaru'}</span>
+            </button>
+            ${ch2Num ? `
+            <button type="button" class="card-ch-btn card-ch-btn-2" aria-label="Baca Chapter ${ch2Num}">
+              <span class="card-ch-num">Ch. ${ch2Num}</span>
+              <span class="card-ch-time">Sebelumnya</span>
+            </button>
+            ` : ''}
+          </div>
+          ` : ''}
         </div>
       `;
+
+      const ch1Btn = card.querySelector('.card-ch-btn-1');
+      if (ch1Btn) {
+        ch1Btn.onclick = (e) => {
+          e.stopPropagation();
+          openDirectChapterByNumber(item.manga_id, ch1Num);
+        };
+      }
+
+      const ch2Btn = card.querySelector('.card-ch-btn-2');
+      if (ch2Btn) {
+        ch2Btn.onclick = (e) => {
+          e.stopPropagation();
+          openDirectChapterByNumber(item.manga_id, ch2Num);
+        };
+      }
 
       const clickHandler = () => openMangaDetail(item.manga_id);
       card.onclick = clickHandler;
@@ -495,6 +605,7 @@
 
       const posterUrl = item.cover_url || '';
       const lastCh = item.last_chapter_number || 0;
+      let nextCh = Number(lastCh) > 0 ? (Number(lastCh) + 1) : '';
 
       card.innerHTML = `
         <div class="card-poster-wrap">
@@ -507,8 +618,40 @@
           <div class="card-meta">
             <span class="card-ch-pill">Terakhir: Ch. ${lastCh}</span>
           </div>
+          <div class="card-chapters-list">
+            <button type="button" class="card-ch-btn card-ch-btn-1" aria-label="Lanjut Chapter ${lastCh}">
+              <span class="card-ch-num">Ch. ${lastCh}</span>
+              <span class="card-ch-time">Terakhir</span>
+            </button>
+            ${nextCh ? `
+            <button type="button" class="card-ch-btn card-ch-btn-2" aria-label="Baca Chapter ${nextCh}">
+              <span class="card-ch-num">Ch. ${nextCh}</span>
+              <span class="card-ch-time">Lanjut</span>
+            </button>
+            ` : ''}
+          </div>
         </div>
       `;
+
+      const ch1Btn = card.querySelector('.card-ch-btn-1');
+      if (ch1Btn) {
+        ch1Btn.onclick = (e) => {
+          e.stopPropagation();
+          if (item.last_chapter_id) {
+            openReader(item.manga_id, item.last_chapter_id, lastCh, item.read_mode || state.readMode);
+          } else {
+            openDirectChapterByNumber(item.manga_id, lastCh);
+          }
+        };
+      }
+
+      const ch2Btn = card.querySelector('.card-ch-btn-2');
+      if (ch2Btn) {
+        ch2Btn.onclick = (e) => {
+          e.stopPropagation();
+          openDirectChapterByNumber(item.manga_id, nextCh);
+        };
+      }
 
       const clickHandler = () => openMangaDetail(item.manga_id);
       card.onclick = clickHandler;
@@ -792,6 +935,36 @@
     });
   }
 
+  // Direct Chapter Opening Helper
+  async function openDirectChapterByNumber(mangaId, chapterNumber, fallbackChapterId = null) {
+    if (fallbackChapterId) {
+      return openReader(mangaId, fallbackChapterId, chapterNumber, state.readMode);
+    }
+    showLoading(true);
+    try {
+      let manga = state.activeManga;
+      if (!manga || manga.manga_id !== mangaId) {
+        manga = await apiFetch(`/api/manga/${mangaId}`);
+        state.activeManga = manga;
+        state.activeMangaId = mangaId;
+      }
+      const chapters = (manga && manga.chapters) || [];
+      let target = chapters.find(ch => Number(ch.chapter_number) === Number(chapterNumber));
+      if (!target && chapters.length > 0) {
+        const sorted = [...chapters].sort((a, b) => Number(b.chapter_number) - Number(a.chapter_number));
+        target = sorted.find(c => Number(c.chapter_number) <= Number(chapterNumber)) || sorted[0];
+      }
+      if (target) {
+        return openReader(mangaId, target.chapter_id, target.chapter_number, state.readMode);
+      } else {
+        showLoading(false);
+        showToast(`Chapter ${chapterNumber} tidak tersedia.`);
+      }
+    } catch (err) {
+      showError(`Gagal membuka chapter: ${err.message}`);
+    }
+  }
+
   // Dual-Mode Reader Implementation
   async function openReader(mangaId, chapterId, chapterNumber, mode = 'webtoon') {
     showLoading(true);
@@ -802,10 +975,20 @@
     state.currentPageIndex = 0;
 
     try {
-      const [pagesRes] = await Promise.all([
-        apiFetch(`/api/chapter/${chapterId}/pages`),
-        saveReadingProgress(mangaId, chapterId, chapterNumber, mode)
-      ]);
+      const fetchPromises = [
+        apiFetch(`/api/chapter/${chapterId}/pages`)
+      ];
+      if (!state.activeManga || state.activeManga.manga_id !== mangaId) {
+        fetchPromises.push(apiFetch(`/api/manga/${mangaId}`));
+      }
+
+      const results = await Promise.all(fetchPromises);
+      const pagesRes = results[0];
+      if (results[1]) {
+        state.activeManga = results[1];
+      }
+
+      saveReadingProgress(mangaId, chapterId, chapterNumber, mode);
 
       showLoading(false);
       hideError();
@@ -857,15 +1040,24 @@
     }
   }
 
+  // Adjacent Chapters Helper
+  function getAdjacentChapters() {
+    const manga = state.activeManga;
+    if (!manga || !manga.chapters) return { nextChapter: null, prevChapter: null, sortedDesc: [] };
+    const sortedDesc = [...manga.chapters].sort((a, b) => Number(b.chapter_number) - Number(a.chapter_number));
+    const currentIndex = sortedDesc.findIndex(c => c.chapter_id === state.activeChapterId);
+    const nextChapter = currentIndex > 0 ? sortedDesc[currentIndex - 1] : null;
+    const prevChapter = (currentIndex >= 0 && currentIndex < sortedDesc.length - 1) ? sortedDesc[currentIndex + 1] : null;
+    return { nextChapter, prevChapter, sortedDesc };
+  }
+
   // Populate Dropdown Options
   function populateChapterDropdown() {
     DOM.readerChapterSelect.innerHTML = '';
-    const manga = state.activeManga;
-    if (!manga || !manga.chapters) return;
+    const { sortedDesc } = getAdjacentChapters();
+    if (!sortedDesc || sortedDesc.length === 0) return;
 
-    // Sort chapters descending for selector
-    const sorted = [...manga.chapters].sort((a, b) => Number(b.chapter_number) - Number(a.chapter_number));
-    sorted.forEach(ch => {
+    sortedDesc.forEach(ch => {
       const opt = document.createElement('option');
       opt.value = ch.chapter_id;
       opt.textContent = `Chapter ${ch.chapter_number}`;
@@ -877,22 +1069,19 @@
 
     DOM.readerChapterSelect.onchange = (e) => {
       const chosenId = e.target.value;
-      const ch = manga.chapters.find(c => c.chapter_id === chosenId);
+      const manga = state.activeManga;
+      const ch = manga && manga.chapters && manga.chapters.find(c => c.chapter_id === chosenId);
       if (ch) {
-        openReader(manga.manga_id, ch.chapter_id, ch.chapter_number, state.readMode);
+        openReader(state.activeMangaId, ch.chapter_id, ch.chapter_number, state.readMode);
       }
     };
 
     // Adjacent chapter buttons
-    setupChapterNavButtons(sorted);
+    setupChapterNavButtons();
   }
 
-  function setupChapterNavButtons(sortedDesc) {
-    const currentIndex = sortedDesc.findIndex(c => c.chapter_id === state.activeChapterId);
-    
-    // In sortedDesc: previous chapter has higher index, next chapter has lower index
-    const nextChapter = currentIndex > 0 ? sortedDesc[currentIndex - 1] : null;
-    const prevChapter = currentIndex < sortedDesc.length - 1 ? sortedDesc[currentIndex + 1] : null;
+  function setupChapterNavButtons() {
+    const { nextChapter, prevChapter } = getAdjacentChapters();
 
     DOM.readerPrevChapter.disabled = !prevChapter;
     DOM.readerNextChapter.disabled = !nextChapter;
@@ -939,6 +1128,57 @@
         img.setAttribute('referrerpolicy', 'no-referrer');
         DOM.webtoonContainer.appendChild(img);
       });
+
+      // Render End-of-Chapter Card
+      const { nextChapter, prevChapter } = getAdjacentChapters();
+      const endCard = document.createElement('div');
+      endCard.className = 'chapter-end-card';
+      endCard.innerHTML = `
+        <span class="chapter-end-badge">Selesai Membaca</span>
+        <h3 class="chapter-end-title">Chapter ${state.activeChapterNumber} telah selesai</h3>
+        <div class="chapter-end-btn-group">
+          ${prevChapter ? `
+          <button type="button" class="btn btn-secondary chapter-end-btn end-prev-btn" aria-label="Chapter Sebelumnya">
+            <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+            <span>Ch. ${prevChapter.chapter_number}</span>
+          </button>
+          ` : ''}
+          <button type="button" class="btn btn-secondary chapter-end-btn end-episodes-btn" aria-label="Buka Daftar Episode">
+            <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <line x1="8" y1="6" x2="21" y2="6"></line>
+              <line x1="8" y1="12" x2="21" y2="12"></line>
+              <line x1="8" y1="18" x2="21" y2="18"></line>
+            </svg>
+            <span>Daftar Episode</span>
+          </button>
+          ${nextChapter ? `
+          <button type="button" class="btn btn-primary chapter-end-btn end-next-btn" aria-label="Chapter Berikutnya">
+            <span>Ch. ${nextChapter.chapter_number}</span>
+            <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+          </button>
+          ` : ''}
+        </div>
+      `;
+
+      const prevBtn = endCard.querySelector('.end-prev-btn');
+      if (prevBtn && prevChapter) {
+        prevBtn.onclick = () => openReader(state.activeMangaId, prevChapter.chapter_id, prevChapter.chapter_number, state.readMode);
+      }
+      const episodesBtn = endCard.querySelector('.end-episodes-btn');
+      if (episodesBtn) {
+        episodesBtn.onclick = () => openEpisodeDrawer();
+      }
+      const nextBtn = endCard.querySelector('.end-next-btn');
+      if (nextBtn && nextChapter) {
+        nextBtn.onclick = () => openReader(state.activeMangaId, nextChapter.chapter_id, nextChapter.chapter_number, state.readMode);
+      }
+
+      DOM.webtoonContainer.appendChild(endCard);
+
       window.scrollTo(0, 0);
       if (DOM.readerView) DOM.readerView.scrollTop = 0;
     } else {
@@ -971,7 +1211,12 @@
       state.currentPageIndex += 1;
       updateMangaSlide();
     } else {
-      showToast('Akhir chapter. Tekan Next Ch untuk chapter berikutnya.');
+      const { nextChapter } = getAdjacentChapters();
+      if (nextChapter) {
+        openReader(state.activeMangaId, nextChapter.chapter_id, nextChapter.chapter_number, state.readMode);
+      } else {
+        openEpisodeDrawer();
+      }
     }
   }
 
@@ -980,8 +1225,96 @@
       state.currentPageIndex -= 1;
       updateMangaSlide();
     } else {
-      showToast('Awal chapter.');
+      const { prevChapter } = getAdjacentChapters();
+      if (prevChapter) {
+        openReader(state.activeMangaId, prevChapter.chapter_id, prevChapter.chapter_number, state.readMode);
+      } else {
+        openEpisodeDrawer();
+      }
     }
+  }
+
+  // Episode Drawer Logic
+  function openEpisodeDrawer() {
+    if (!DOM.episodeDrawer) return;
+    const manga = state.activeManga;
+    if (DOM.episodeDrawerComicTitle) {
+      DOM.episodeDrawerComicTitle.textContent = (manga && manga.title) || '';
+    }
+    if (DOM.episodeSearchInput) {
+      DOM.episodeSearchInput.value = '';
+    }
+    renderEpisodeDrawerList();
+    DOM.episodeDrawer.hidden = false;
+  }
+
+  function closeEpisodeDrawer() {
+    if (!DOM.episodeDrawer) return;
+    DOM.episodeDrawer.hidden = true;
+  }
+
+  function renderEpisodeDrawerList() {
+    if (!DOM.episodeDrawerList) return;
+    DOM.episodeDrawerList.innerHTML = '';
+    const manga = state.activeManga;
+    const chapters = (manga && manga.chapters) || [];
+
+    if (chapters.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'drawer-chapter-item';
+      empty.style.justifyContent = 'center';
+      empty.style.color = 'var(--text-muted)';
+      empty.textContent = 'Daftar episode tidak tersedia.';
+      DOM.episodeDrawerList.appendChild(empty);
+      return;
+    }
+
+    const query = (DOM.episodeSearchInput && DOM.episodeSearchInput.value.trim().toLowerCase()) || '';
+    let filtered = chapters;
+    if (query) {
+      filtered = chapters.filter(c => {
+        const numStr = String(c.chapter_number || '').toLowerCase();
+        const titleStr = String(c.chapter_title || '').toLowerCase();
+        return numStr.includes(query) || titleStr.includes(query);
+      });
+    }
+
+    const sorted = [...filtered].sort((a, b) => Number(b.chapter_number || 0) - Number(a.chapter_number || 0));
+
+    sorted.forEach(ch => {
+      const isCurrent = ch.chapter_id === state.activeChapterId;
+      const item = document.createElement('div');
+      item.className = `drawer-chapter-item ${isCurrent ? 'is-current' : ''}`;
+      item.setAttribute('role', 'listitem');
+      item.tabIndex = 0;
+
+      const dateStr = ch.release_date || '';
+
+      item.innerHTML = `
+        <div class="drawer-chapter-info">
+          <span class="drawer-chapter-num">Chapter ${ch.chapter_number}</span>
+          ${isCurrent ? '<span class="drawer-chapter-badge">Sedang Dibaca</span>' : ''}
+        </div>
+        ${dateStr ? `<span class="drawer-chapter-date">${dateStr}</span>` : ''}
+      `;
+
+      const clickHandler = () => {
+        closeEpisodeDrawer();
+        if (!isCurrent) {
+          openReader(state.activeMangaId, ch.chapter_id, ch.chapter_number, state.readMode);
+        }
+      };
+
+      item.onclick = clickHandler;
+      item.onkeydown = (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          clickHandler();
+        }
+      };
+
+      DOM.episodeDrawerList.appendChild(item);
+    });
   }
 
   // Tap Zones & Controller Bar Auto-Hiding
@@ -1140,6 +1473,32 @@
     };
   }
 
+  // Reader Episodes Button
+  if (DOM.readerEpisodesBtn) {
+    DOM.readerEpisodesBtn.onclick = () => {
+      openEpisodeDrawer();
+    };
+  }
+
+  // Episode Drawer Close Button & Backdrop
+  if (DOM.episodeDrawerClose) {
+    DOM.episodeDrawerClose.onclick = () => {
+      closeEpisodeDrawer();
+    };
+  }
+
+  if (DOM.episodeDrawerBackdrop) {
+    DOM.episodeDrawerBackdrop.onclick = () => {
+      closeEpisodeDrawer();
+    };
+  }
+
+  if (DOM.episodeSearchInput) {
+    DOM.episodeSearchInput.addEventListener('input', () => {
+      renderEpisodeDrawerList();
+    });
+  }
+
   // Back to Catalog Button in Detail View
   if (DOM.detailBackBtn) {
     DOM.detailBackBtn.onclick = () => switchView('catalog');
@@ -1195,8 +1554,12 @@
 
   // Keyboard Shortcuts Listener
   window.addEventListener('keydown', (e) => {
-    // Escape key closes reader or detail view
+    // Escape key closes episode drawer, reader, or detail view
     if (e.key === 'Escape') {
+      if (DOM.episodeDrawer && !DOM.episodeDrawer.hidden) {
+        closeEpisodeDrawer();
+        return;
+      }
       if (state.currentView === 'reader') {
         DOM.readerExitBtn.click();
       } else if (state.currentView === 'detail') {
