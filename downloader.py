@@ -117,5 +117,9 @@ def package_chapter_cbz(
                     full_path = os.path.join(root_dir, file)
                     cbz.write(full_path, arcname=file)
 
+    # Clean up temporary uncompressed images directory to conserve disk space
+    if os.path.isdir(downloaded_dir):
+        shutil.rmtree(downloaded_dir, ignore_errors=True)
+
     logger.info(f"Chapter successfully packaged as CBZ: {archive_path}")
     return os.path.abspath(archive_path)
