@@ -65,7 +65,7 @@ class WatchlistTogglePayload(BaseModel):
 class DownloadRequestPayload(BaseModel):
     manga_id: Optional[str] = None
     manga_title: Optional[str] = "Manga"
-    chapter_number: Optional[float] = 0.0
+    chapter_number: Optional[float] = None
     total_pages: Optional[int] = 0
 
 
@@ -109,7 +109,7 @@ async def auto_sync_watchlist_task(interval_seconds: int = 1800) -> None:
         while True:
             await asyncio.sleep(interval_seconds)
             try:
-                check_watchlist_updates(client_instance=client, db_path=DEFAULT_DB_PATH)
+                await asyncio.to_thread(check_watchlist_updates, client=client, db_path=DEFAULT_DB_PATH)
             except Exception as err:
                 logger.error(f"Watchlist auto-sync cycle failed: {err}")
     except asyncio.CancelledError:
@@ -312,7 +312,7 @@ def download_chapter_endpoint(
             ch_data = ch_detail.get("data", {}) if isinstance(ch_detail, dict) else {}
             if not req.manga_id:
                 m_id = ch_data.get("manga_id", m_id)
-            if req.chapter_number == 0.0:
+            if req.chapter_number is None:
                 ch_num = float(ch_data.get("chapter_number", ch_num))
             if pages == 0:
                 pages = len(ch_data.get("chapter", {}).get("data", []))

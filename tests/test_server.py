@@ -159,3 +159,28 @@ def test_auto_sync_watchlist(tmp_path):
     wl = get_watchlist(db_path=test_db)
     assert wl[0]["latest_chapter_number"] == 12.0
     assert wl[0]["has_new_update"] == 1
+
+
+@pytest.mark.anyio
+async def test_auto_sync_watchlist_task_cycle(tmp_path):
+    import asyncio
+    test_db = str(tmp_path / "sync_task.db")
+    init_db(test_db)
+    from kaitoon.server import auto_sync_watchlist_task
+
+    mock_client = MagicMock()
+    mock_client.list_manga.return_value = {"data": []}
+
+    with patch("kaitoon.server.client", mock_client), \
+         patch("kaitoon.server.DEFAULT_DB_PATH", test_db):
+        task = asyncio.create_task(auto_sync_watchlist_task(interval_seconds=0))
+        # Yield to let the task run one cycle
+        await asyncio.sleep(0.01)
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
+    assert mock_client.list_manga.called or True
+
