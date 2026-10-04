@@ -247,8 +247,83 @@
     }
   }
 
+  // URL Hash and Storage Routing Helper
+  function setRoute(routeStr) {
+    const hash = `#/${routeStr}`;
+    try {
+      sessionStorage.setItem('kaitoon_route', hash);
+    } catch {
+      // Ignore storage errors in restricted contexts
+    }
+    if (window.location.hash !== hash) {
+      window.location.hash = hash;
+    }
+  }
+
+  let isHandlingRoute = false;
+  async function handleRoute() {
+    if (isHandlingRoute) return;
+    isHandlingRoute = true;
+    try {
+      let rawHash = window.location.hash || '';
+      if (!rawHash) {
+        try {
+          rawHash = sessionStorage.getItem('kaitoon_route') || '';
+        } catch {
+          // Ignore storage errors
+        }
+      }
+
+      const cleanHash = rawHash.replace(/^#\/?/, '');
+      const parts = cleanHash.split('/').filter(Boolean);
+
+      // Route: #/reader/{mangaId}/{chapterId}/{chapterNumber}
+      if (parts[0] === 'reader' && parts.length >= 4) {
+        const mangaId = decodeURIComponent(parts[1]);
+        const chapterId = decodeURIComponent(parts[2]);
+        const chapterNumber = decodeURIComponent(parts[3]);
+        if (state.currentView !== 'reader' || state.activeChapterId !== chapterId) {
+          await openReader(mangaId, chapterId, chapterNumber, state.readMode, false);
+        }
+        return;
+      }
+
+      // Route: #/manga/{mangaId}
+      if (parts[0] === 'manga' && parts.length >= 2) {
+        const mangaId = decodeURIComponent(parts[1]);
+        if (state.currentView !== 'detail' || state.activeMangaId !== mangaId) {
+          await openMangaDetail(mangaId, false);
+        }
+        return;
+      }
+
+      // Route: #/favorites
+      if (parts[0] === 'favorites') {
+        if (state.currentView !== 'catalog' || state.activeTab !== 'favorites') {
+          switchTab('favorites', false);
+        }
+        return;
+      }
+
+      // Route: #/history
+      if (parts[0] === 'history') {
+        if (state.currentView !== 'catalog' || state.activeTab !== 'history') {
+          switchTab('history', false);
+        }
+        return;
+      }
+
+      // Default Route: #/latest
+      if (state.currentView !== 'catalog' || state.activeTab !== 'latest') {
+        switchTab('latest', false);
+      }
+    } finally {
+      isHandlingRoute = false;
+    }
+  }
+
   // Tab Navigation
-  function switchTab(tabKey) {
+  function switchTab(tabKey, updateHash = true) {
     state.activeTab = tabKey;
     state.catalogPage = 1;
     state.lastScrollY = 0;
@@ -283,6 +358,9 @@
       loadHistory();
     }
     switchView('catalog');
+    if (updateHash) {
+      setRoute(tabKey);
+    }
   }
 
   // API Callers
@@ -708,7 +786,7 @@
   }
 
   // Open Detail View
-  async function openMangaDetail(mangaId) {
+  async function openMangaDetail(mangaId, updateHash = true) {
     showLoading(true);
     state.activeMangaId = mangaId;
 
@@ -770,8 +848,11 @@
       renderChapterList(chapters, histItem);
 
       switchView('detail');
+      if (updateHash) {
+        setRoute(`manga/${encodeURIComponent(mangaId)}`);
+      }
     } catch (err) {
-      showError(`Gagal memuat detail komik: ${err.message}`, () => openMangaDetail(mangaId));
+      showError(`Gagal memuat detail komik: ${err.message}`, () => openMangaDetail(mangaId, updateHash));
     }
   }
 
@@ -988,7 +1069,7 @@
   }
 
   // Dual-Mode Reader Implementation
-  async function openReader(mangaId, chapterId, chapterNumber, mode = 'webtoon') {
+  async function openReader(mangaId, chapterId, chapterNumber, mode = 'webtoon', updateHash = true) {
     showLoading(true);
     state.activeMangaId = mangaId;
     state.activeChapterId = chapterId;
@@ -1019,7 +1100,7 @@
       state.activeChapterPages = pages;
 
       if (!pages || pages.length === 0) {
-        showError('Tidak ada halaman gambar dalam chapter ini.', () => openReader(mangaId, chapterId, chapterNumber, mode));
+        showError('Tidak ada halaman gambar dalam chapter ini.', () => openReader(mangaId, chapterId, chapterNumber, mode, updateHash));
         return;
       }
 
@@ -1038,8 +1119,11 @@
       renderReaderMode();
 
       switchView('reader');
+      if (updateHash) {
+        setRoute(`reader/${encodeURIComponent(mangaId)}/${encodeURIComponent(chapterId)}/${encodeURIComponent(chapterNumber)}`);
+      }
     } catch (err) {
-      showError(`Gagal memuat halaman chapter: ${err.message}`, () => openReader(mangaId, chapterId, chapterNumber, mode));
+      showError(`Gagal memuat halaman chapter: ${err.message}`, () => openReader(mangaId, chapterId, chapterNumber, mode, updateHash));
     }
   }
 
@@ -1506,9 +1590,11 @@
   if (DOM.readerExitBtn) {
     DOM.readerExitBtn.onclick = () => {
       if (state.activeMangaId) {
-        switchView('detail');
+        setRoute(`manga/${encodeURIComponent(state.activeMangaId)}`);
+        openMangaDetail(state.activeMangaId, false);
       } else {
-        switchView('catalog');
+        setRoute('latest');
+        switchTab('latest', false);
       }
     };
   }
@@ -1516,13 +1602,15 @@
   // Home Buttons in Reader View
   if (DOM.readerHomeBtn) {
     DOM.readerHomeBtn.onclick = () => {
-      switchView('catalog');
+      setRoute('latest');
+      switchTab('latest', false);
     };
   }
 
   if (DOM.readerDockHomeBtn) {
     DOM.readerDockHomeBtn.onclick = () => {
-      switchView('catalog');
+      setRoute('latest');
+      switchTab('latest', false);
     };
   }
 
@@ -1562,16 +1650,24 @@
 
   // Back to Catalog Button in Detail View
   if (DOM.detailBackBtn) {
-    DOM.detailBackBtn.onclick = () => switchView('catalog');
+    DOM.detailBackBtn.onclick = () => {
+      const targetTab = state.activeTab || 'latest';
+      setRoute(targetTab);
+      switchTab(targetTab, false);
+    };
   }
 
   // Brand Logo Click
   if (DOM.brandLogo) {
-    DOM.brandLogo.onclick = () => switchTab('latest');
+    DOM.brandLogo.onclick = () => {
+      setRoute('latest');
+      switchTab('latest', false);
+    };
     DOM.brandLogo.onkeydown = (e) => {
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
-        switchTab('latest');
+        setRoute('latest');
+        switchTab('latest', false);
       }
     };
   }
@@ -1661,17 +1757,17 @@
     return div.innerHTML;
   }
 
-  // Initial Boot and Refresh Handler
+  // Window Hashchange Listener for back and forward navigation
+  window.addEventListener('hashchange', () => {
+    handleRoute();
+  });
+
+  // Initial Boot and Route Dispatcher
   if ('scrollRestoration' in history) {
     history.scrollRestoration = 'manual';
   }
   state.lastScrollY = 0;
-  window.scrollTo(0, 0);
 
-  // Return cleanly to catalog homepage on load or refresh
-  switchTab('latest');
-
-  window.addEventListener('load', () => {
-    window.scrollTo(0, 0);
-  });
+  // Restore active route (reader, manga detail, or catalog tab) on load or refresh
+  handleRoute();
 })();
