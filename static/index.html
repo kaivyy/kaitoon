@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Kaitoon Web Reader: Pembaca komik webtoon dan manga bebas iklan dengan tema OLED Pure Black.">
+  <title>Kaitoon Web Reader</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <!-- Header Aplikasi -->
+  <header id="app-header" class="site-header">
+    <div class="header-container">
+      <div class="brand" id="brand-logo" role="button" tabindex="0" aria-label="Beranda Kaitoon">
+        <svg class="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"></path>
+          <path d="M6 6h10"></path>
+          <path d="M6 10h10"></path>
+          <path d="M6 14h6"></path>
+        </svg>
+        <span class="brand-name">Kaitoon</span>
+      </div>
+
+      <div class="search-box">
+        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input type="search" id="search-input" placeholder="Cari judul komik..." aria-label="Cari judul komik" autocomplete="off">
+        <button id="search-clear-btn" class="clear-btn" aria-label="Hapus pencarian" hidden>&times;</button>
+      </div>
+
+      <nav class="nav-tabs" aria-label="Navigasi Utama">
+        <button class="tab-btn active" id="tab-latest" data-tab="latest">Terbaru</button>
+        <button class="tab-btn" id="tab-favorites" data-tab="favorites">Favorit</button>
+        <button class="tab-btn" id="tab-history" data-tab="history">Riwayat</button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Notifikasi Toast -->
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+  <!-- Area Konten Utama -->
+  <main id="app-main" class="main-content">
+    <!-- State: Memuat (Loading Spinner) -->
+    <div id="global-loader" class="state-container loader-state" hidden aria-label="Memuat data">
+      <div class="spinner" aria-hidden="true"></div>
+      <p class="state-text">Memuat konten komik...</p>
+    </div>
+
+    <!-- State: Terjadi Kesalahan (Error) -->
+    <div id="error-state" class="state-container error-state" hidden role="alert">
+      <div class="state-icon" aria-hidden="true">!</div>
+      <h2 class="state-title" id="error-title">Terjadi Kesalahan</h2>
+      <p class="state-text" id="error-message">Gagal menghubungi server backend.</p>
+      <button id="retry-btn" class="btn btn-primary">Coba Lagi</button>
+    </div>
+
+    <!-- State: Konten Kosong (Empty) -->
+    <div id="empty-state" class="state-container empty-state" hidden>
+      <div class="state-icon" aria-hidden="true">&#128214;</div>
+      <h2 class="state-title" id="empty-title">Tidak Ada Konten</h2>
+      <p class="state-text" id="empty-message">Belum ada komik untuk ditampilkan saat ini.</p>
+      <button id="empty-action-btn" class="btn btn-primary">Jelajahi Terbaru</button>
+    </div>
+
+    <!-- Tampilan 1: Katalog Komik (#catalog-view) -->
+    <section id="catalog-view" class="view-section">
+      <div class="view-header">
+        <h1 class="view-title" id="catalog-title">Komik Terbaru</h1>
+        <span class="view-subtitle" id="catalog-count"></span>
+      </div>
+      <div id="comic-grid" class="comic-grid" role="list"></div>
+      <div id="pagination-controls" class="pagination-bar" hidden>
+        <button id="prev-page-btn" class="btn btn-secondary" disabled>&larr; Sebelumnya</button>
+        <span id="page-num-display" class="page-indicator-text">Halaman 1</span>
+        <button id="next-page-btn" class="btn btn-secondary">Selanjutnya &rarr;</button>
+      </div>
+    </section>
+
+    <!-- Tampilan 2: Detail Komik (#detail-view) -->
+    <section id="detail-view" class="view-section" hidden>
+      <button id="detail-back-btn" class="btn btn-ghost nav-back-btn" aria-label="Kembali ke Katalog">
+        &larr; Kembali ke Katalog
+      </button>
+      
+      <div class="detail-card">
+        <div class="detail-poster-wrap">
+          <img id="detail-cover" class="detail-poster" alt="Sampul Komik" referrerpolicy="no-referrer">
+        </div>
+        <div class="detail-info">
+          <h1 id="detail-title" class="detail-title"></h1>
+          <p id="detail-alt-title" class="detail-alt-title"></p>
+          
+          <div class="detail-badges">
+            <span id="detail-status" class="pill pill-status"></span>
+            <span id="detail-rating" class="pill pill-rating"></span>
+            <span id="detail-views" class="pill pill-views"></span>
+          </div>
+
+          <div id="detail-genres" class="genres-list" aria-label="Daftar Genre"></div>
+
+          <div class="synopsis-wrap">
+            <h2 class="synopsis-heading">Sinopsis</h2>
+            <p id="detail-synopsis" class="detail-synopsis"></p>
+          </div>
+
+          <div class="detail-actions">
+            <button id="detail-continue-btn" class="btn btn-primary">Mulai Membaca</button>
+            <button id="detail-favorite-btn" class="btn btn-secondary">Tambah ke Favorit</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="chapters-section">
+        <div class="chapters-header">
+          <h2 class="section-title">Daftar Chapter (<span id="detail-chapter-count">0</span>)</h2>
+          <button id="sort-order-btn" class="btn btn-ghost" aria-label="Ubah urutan chapter">
+            Urutan: Terbaru &darr;
+          </button>
+        </div>
+        <div id="chapter-list" class="chapter-list" role="list"></div>
+      </div>
+    </section>
+
+    <!-- Tampilan 3: Reader Komik (#reader-view) -->
+    <section id="reader-view" class="view-section reader-view" hidden>
+      <!-- Auto-hiding Floating Header -->
+      <header id="reader-header" class="reader-floating-bar reader-top-bar" role="toolbar" aria-label="Navigasi Reader Atas">
+        <div class="reader-bar-left">
+          <button id="reader-exit-btn" class="btn btn-icon" title="Kembali ke Detail" aria-label="Tutup reader">
+            &larr; Keluar
+          </button>
+          <div class="reader-title-info">
+            <span id="reader-manga-title" class="reader-comic-name"></span>
+            <span id="reader-chapter-title" class="reader-ch-name"></span>
+          </div>
+        </div>
+        <div class="reader-bar-right">
+          <button id="reader-mode-toggle" class="btn btn-toggle" aria-label="Ganti mode membaca">
+            Mode: Webtoon
+          </button>
+          <button id="reader-download-btn" class="btn btn-secondary" aria-label="Unduh Chapter CBZ">
+            Unduh CBZ
+          </button>
+        </div>
+      </header>
+
+      <!-- Reader Stage Area -->
+      <div id="reader-container" class="reader-stage">
+        <!-- Mode Webtoon: Kontainer Gulir Vertikal -->
+        <div id="webtoon-scroll-container" class="webtoon-container"></div>
+
+        <!-- Mode Manga: Kontainer Slide Halaman Tunggal -->
+        <div id="manga-slide-container" class="manga-container" hidden>
+          <div class="tap-zone tap-zone-left" id="tap-prev" aria-label="Halaman Sebelumnya" title="Ketuk untuk Halaman Sebelumnya"></div>
+          <div class="tap-zone tap-zone-center" id="tap-center" aria-label="Buka Menu Kontrol" title="Ketuk untuk Menu Kontrol"></div>
+          <div class="tap-zone tap-zone-right" id="tap-next" aria-label="Halaman Berikutnya" title="Ketuk untuk Halaman Berikutnya"></div>
+          <img id="manga-slide-img" class="manga-slide-img" alt="Halaman Manga" referrerpolicy="no-referrer">
+        </div>
+      </div>
+
+      <!-- Auto-hiding Floating Footer -->
+      <footer id="reader-footer" class="reader-floating-bar reader-bottom-bar" role="toolbar" aria-label="Navigasi Reader Bawah">
+        <button id="reader-prev-chapter" class="btn btn-secondary reader-nav-btn" aria-label="Chapter Sebelumnya">
+          &laquo; Prev Ch
+        </button>
+        
+        <button id="reader-prev-page" class="btn btn-secondary manga-nav-btn" aria-label="Halaman Sebelumnya" hidden>
+          &lsaquo; Halaman
+        </button>
+
+        <div class="reader-center-controls">
+          <select id="reader-chapter-select" class="chapter-select" aria-label="Pilih Chapter"></select>
+          <span id="reader-page-counter" class="page-counter" hidden>Hal 1 / 1</span>
+        </div>
+
+        <button id="reader-next-page" class="btn btn-secondary manga-nav-btn" aria-label="Halaman Berikutnya" hidden>
+          Halaman &rsaquo;
+        </button>
+
+        <button id="reader-next-chapter" class="btn btn-secondary reader-nav-btn" aria-label="Chapter Berikutnya">
+          Next Ch &raquo;
+        </button>
+      </footer>
+    </section>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
