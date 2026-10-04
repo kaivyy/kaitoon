@@ -1,0 +1,28 @@
+---
+// StatePanels.astro: Resilient state containers: loader, error, empty state, and toast
+---
+
+<!-- Notifikasi Toast -->
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+<!-- State: Memuat (Loading Spinner) -->
+<div id="global-loader" class="state-container loader-state" hidden aria-label="Memuat data">
+  <div class="spinner" aria-hidden="true"></div>
+  <p class="state-text">Memuat konten komik...</p>
+</div>
+
+<!-- State: Terjadi Kesalahan (Error) -->
+<div id="error-state" class="state-container error-state" hidden role="alert">
+  <div class="state-icon" aria-hidden="true">!</div>
+  <h2 class="state-title" id="error-title">Terjadi Kesalahan</h2>
+  <p class="state-text" id="error-message">Gagal menghubungi server backend.</p>
+  <button id="retry-btn" class="btn btn-primary">Coba Lagi</button>
+</div>
+
+<!-- State: Konten Kosong (Empty) -->
+<div id="empty-state" class="state-container empty-state" hidden>
+  <div class="state-icon" aria-hidden="true">&#128214;</div>
+  <h2 class="state-title" id="empty-title">Tidak Ada Konten</h2>
+  <p class="state-text" id="empty-message">Belum ada komik untuk ditampilkan saat ini.</p>
+  <button id="empty-action-btn" class="btn btn-primary">Jelajahi Terbaru</button>
+</div>
