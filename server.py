@@ -306,7 +306,7 @@ def download_chapter_endpoint(
     ch_num = req.chapter_number or 0.0
     pages = req.total_pages or 0
 
-    if not req.manga_id or req.chapter_number == 0.0 or pages == 0:
+    if not req.manga_id or req.chapter_number is None or pages == 0:
         try:
             ch_detail = client.get_chapter_detail(id)
             ch_data = ch_detail.get("data", {}) if isinstance(ch_detail, dict) else {}
