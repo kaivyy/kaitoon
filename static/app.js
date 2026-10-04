@@ -2,7 +2,7 @@
  * Kaitoon Web Reader Application
  * Single-Page App with OLED Pure Black Minimalist Interface
  * Ad-free streaming, dual-mode reading, and SQLite multi-device sync
- * Rule R-02 Compliance: Absolutely no em dashes allowed in code, comments, or copy.
+ * Rule R-02 Compliance: Absolutely no em dashes or en dashes allowed in code, comments, or copy.
  */
 
 (() => {
@@ -27,6 +27,7 @@
     catalogHasNext: true,
     favoritesList: [],
     historyList: [],
+    activeHistoryItem: null,
     lastScrollY: 0,
     activeDownloadPolls: new Set()
   };
@@ -78,6 +79,7 @@
     detailContinueBtn: document.getElementById('detail-continue-btn'),
     detailFavoriteBtn: document.getElementById('detail-favorite-btn'),
     detailChapterCount: document.getElementById('detail-chapter-count'),
+    chapterFilterInput: document.getElementById('chapter-filter-input'),
     sortOrderBtn: document.getElementById('sort-order-btn'),
     chapterList: document.getElementById('chapter-list'),
 
@@ -330,7 +332,7 @@
     }
   }
 
-  // Live Search
+  // Live Search (400ms Debounce)
   async function performSearch(query) {
     const q = query.trim();
     if (!q) {
@@ -367,7 +369,7 @@
     }
   }
 
-  // Render Grid Cards
+  // Render Grid Cards (Web Comic Style with Badges)
   function renderComicGrid(items) {
     DOM.comicGrid.innerHTML = '';
     items.forEach(item => {
@@ -381,14 +383,30 @@
       const latestCh = item.latest_chapter_number || item.latest_chapter || '';
       const rating = item.user_rate ? Number(item.user_rate).toFixed(1) : '';
 
+      // Determine comic format (Manhwa / Manga / Manhua)
+      let format = '';
+      if (item.taxonomy && item.taxonomy.Format && item.taxonomy.Format.length > 0) {
+        format = item.taxonomy.Format[0].name || item.taxonomy.Format[0];
+      } else if (item.country_id === 'KR') {
+        format = 'Manhwa';
+      } else if (item.country_id === 'JP') {
+        format = 'Manga';
+      } else if (item.country_id === 'CN') {
+        format = 'Manhua';
+      }
+
       card.innerHTML = `
         <div class="card-poster-wrap">
           <img class="card-poster" src="${posterUrl}" alt="Sampul ${escapeHtml(item.title || '')}" loading="lazy" referrerpolicy="no-referrer">
+          ${format ? `<span class="card-badge-format">${escapeHtml(format)}</span>` : ''}
+          ${rating ? `<span class="card-badge-rating">&#9733; ${rating}</span>` : ''}
+          <div class="card-poster-shadow"></div>
+          ${latestCh ? `<span class="card-poster-ch-tag">Ch. ${latestCh}</span>` : ''}
         </div>
         <div class="card-body">
           <h2 class="card-title">${escapeHtml(item.title || 'Tanpa Judul')}</h2>
           <div class="card-meta">
-            ${latestCh ? `<span class="card-ch-pill">Ch. ${latestCh}</span>` : '<span></span>'}
+            <span class="card-ch-pill">${latestCh ? `Ch. ${latestCh}` : 'Tersedia'}</span>
             ${rating ? `<span class="card-rating">&#9733; ${rating}</span>` : ''}
           </div>
         </div>
@@ -423,11 +441,14 @@
         <div class="card-poster-wrap">
           <img class="card-poster" src="${posterUrl}" alt="Sampul ${escapeHtml(item.manga_title || '')}" loading="lazy" referrerpolicy="no-referrer">
           ${hasNew ? '<span class="card-badge-update">UPDATE</span>' : ''}
+          <div class="card-poster-shadow"></div>
+          <span class="card-poster-ch-tag">Ch. ${latestCh}</span>
         </div>
         <div class="card-body">
           <h2 class="card-title">${escapeHtml(item.manga_title || 'Tanpa Judul')}</h2>
           <div class="card-meta">
             <span class="card-ch-pill">Ch. ${latestCh}</span>
+            ${hasNew ? '<span style="color:var(--accent-emerald); font-weight:700;">Baru</span>' : ''}
           </div>
         </div>
       `;
@@ -459,6 +480,8 @@
       card.innerHTML = `
         <div class="card-poster-wrap">
           <img class="card-poster" src="${posterUrl}" alt="Sampul ${escapeHtml(item.manga_title || '')}" loading="lazy" referrerpolicy="no-referrer">
+          <div class="card-poster-shadow"></div>
+          <span class="card-poster-ch-tag">Ch. ${lastCh}</span>
         </div>
         <div class="card-body">
           <h2 class="card-title">${escapeHtml(item.manga_title || 'Tanpa Judul')}</h2>
@@ -519,6 +542,9 @@
       const detail = detailRes.data || detailRes;
       state.activeManga = detail;
 
+      // Reset chapter filter
+      if (DOM.chapterFilterInput) DOM.chapterFilterInput.value = '';
+
       // Populate Detail View Elements
       DOM.detailCover.src = detail.cover_image_url || '';
       DOM.detailCover.alt = `Sampul ${detail.title || 'Komik'}`;
@@ -552,11 +578,12 @@
 
       // Reading History Status
       const histItem = historyItems.find(h => h.manga_id === mangaId);
+      state.activeHistoryItem = histItem;
       setupContinueReadingButton(detail, histItem);
 
       // Render Chapters
       const chapters = detail.chapters || [];
-      DOM.detailChapterCount.textContent = chapters.length;
+      DOM.detailChapterCount.textContent = `${chapters.length} Chapter`;
       renderChapterList(chapters, histItem);
 
       switchView('detail');
@@ -567,11 +594,21 @@
 
   function updateFavoriteButton(isFavorited) {
     if (isFavorited) {
-      DOM.detailFavoriteBtn.textContent = 'Hapus dari Favorit';
+      DOM.detailFavoriteBtn.innerHTML = `
+        <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+        </svg>
+        <span>Hapus dari Favorit</span>
+      `;
       DOM.detailFavoriteBtn.classList.remove('btn-secondary');
       DOM.detailFavoriteBtn.classList.add('btn-ghost');
     } else {
-      DOM.detailFavoriteBtn.textContent = 'Tambah ke Favorit';
+      DOM.detailFavoriteBtn.innerHTML = `
+        <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+        </svg>
+        <span>Tambah ke Favorit</span>
+      `;
       DOM.detailFavoriteBtn.classList.remove('btn-ghost');
       DOM.detailFavoriteBtn.classList.add('btn-secondary');
     }
@@ -608,19 +645,27 @@
     DOM.detailContinueBtn.hidden = false;
 
     let targetChapter = null;
+    let label = 'Mulai Membaca';
+
     if (historyItem && historyItem.last_chapter_id) {
       targetChapter = chapters.find(c => c.chapter_id === historyItem.last_chapter_id);
       if (targetChapter) {
-        DOM.detailContinueBtn.textContent = `Lanjut Baca Ch. ${historyItem.last_chapter_number}`;
+        label = `Lanjut Baca Ch. ${historyItem.last_chapter_number}`;
       }
     }
 
     if (!targetChapter) {
-      // Find lowest/first chapter
       const sortedAsc = [...chapters].sort((a, b) => Number(a.chapter_number) - Number(b.chapter_number));
       targetChapter = sortedAsc[0];
-      DOM.detailContinueBtn.textContent = `Mulai Baca Ch. ${targetChapter.chapter_number}`;
+      label = `Mulai Baca Ch. ${targetChapter.chapter_number}`;
     }
+
+    DOM.detailContinueBtn.innerHTML = `
+      <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <polygon points="5 3 19 12 5 21 5 3"></polygon>
+      </svg>
+      <span>${label}</span>
+    `;
 
     DOM.detailContinueBtn.onclick = () => {
       const preferredMode = (historyItem && historyItem.read_mode) || state.readMode;
@@ -630,7 +675,29 @@
 
   function renderChapterList(chapters, historyItem) {
     DOM.chapterList.innerHTML = '';
-    const sorted = [...chapters].sort((a, b) => {
+
+    // Apply chapter search filter if provided
+    const query = (DOM.chapterFilterInput && DOM.chapterFilterInput.value.trim().toLowerCase()) || '';
+    let filtered = chapters;
+    if (query) {
+      filtered = chapters.filter(c => {
+        const chNum = String(c.chapter_number || '').toLowerCase();
+        const chTitle = String(c.chapter_title || '').toLowerCase();
+        return chNum.includes(query) || chTitle.includes(query);
+      });
+    }
+
+    if (filtered.length === 0) {
+      const emptyItem = document.createElement('div');
+      emptyItem.className = 'chapter-item';
+      emptyItem.style.justifyContent = 'center';
+      emptyItem.style.color = 'var(--text-muted)';
+      emptyItem.textContent = `Tidak ada chapter yang cocok dengan "${query}".`;
+      DOM.chapterList.appendChild(emptyItem);
+      return;
+    }
+
+    const sorted = [...filtered].sort((a, b) => {
       const numA = Number(a.chapter_number || 0);
       const numB = Number(b.chapter_number || 0);
       return state.chapterSortOrder === 'desc' ? numB - numA : numA - numB;
@@ -655,7 +722,14 @@
         </div>
         <div class="chapter-item-right">
           ${releaseDate ? `<span class="chapter-date">${releaseDate}</span>` : ''}
-          <button class="btn chapter-dl-btn" title="Unduh chapter offline .cbz" aria-label="Unduh chapter ${ch.chapter_number}">Unduh</button>
+          <button class="btn chapter-dl-btn" title="Unduh chapter offline .cbz" aria-label="Unduh chapter ${ch.chapter_number}">
+            <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:14px;height:14px;">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            <span>Unduh</span>
+          </button>
         </div>
       `;
 
@@ -676,11 +750,27 @@
   if (DOM.sortOrderBtn) {
     DOM.sortOrderBtn.onclick = () => {
       state.chapterSortOrder = state.chapterSortOrder === 'desc' ? 'asc' : 'desc';
-      DOM.sortOrderBtn.textContent = state.chapterSortOrder === 'desc' ? 'Urutan: Terbaru \u2193' : 'Urutan: Terlama \u2191';
+      const isDesc = state.chapterSortOrder === 'desc';
+      DOM.sortOrderBtn.innerHTML = `
+        <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <polyline points="${isDesc ? '19 12 12 19 5 12' : '19 12 12 5 5 12'}"></polyline>
+        </svg>
+        <span>Urutan: ${isDesc ? 'Terbaru \u2193' : 'Terlama \u2191'}</span>
+      `;
       if (state.activeManga && state.activeManga.chapters) {
-        renderChapterList(state.activeManga.chapters, null);
+        renderChapterList(state.activeManga.chapters, state.activeHistoryItem);
       }
     };
+  }
+
+  // Chapter Filter Input Handler
+  if (DOM.chapterFilterInput) {
+    DOM.chapterFilterInput.addEventListener('input', () => {
+      if (state.activeManga && state.activeManga.chapters) {
+        renderChapterList(state.activeManga.chapters, state.activeHistoryItem);
+      }
+    });
   }
 
   // Dual-Mode Reader Implementation
@@ -804,7 +894,13 @@
   // Render Reader View Based on Mode
   function renderReaderMode() {
     const isWebtoon = state.readMode === 'webtoon';
-    DOM.readerModeToggle.textContent = isWebtoon ? 'Mode: Webtoon' : 'Mode: Manga';
+    DOM.readerModeToggle.innerHTML = `
+      <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect>
+        <line x1="12" y1="18" x2="12" y2="18"></line>
+      </svg>
+      <span>Mode: ${isWebtoon ? 'Webtoon' : 'Manga'}</span>
+    `;
 
     if (isWebtoon) {
       DOM.webtoonContainer.hidden = false;
@@ -856,7 +952,6 @@
       state.currentPageIndex += 1;
       updateMangaSlide();
     } else {
-      // Last page reached: check next chapter
       showToast('Akhir chapter. Tekan Next Ch untuk chapter berikutnya.');
     }
   }
@@ -901,7 +996,6 @@
       state.readMode = state.readMode === 'webtoon' ? 'manga' : 'webtoon';
       renderReaderMode();
       showToast(`Beralih ke mode ${state.readMode === 'webtoon' ? 'Webtoon' : 'Manga Slide'}`);
-      // Update reading mode preference in history
       saveReadingProgress(state.activeMangaId, state.activeChapterId, state.activeChapterNumber, state.readMode);
     };
   }
@@ -921,10 +1015,8 @@
     if (Math.abs(currentScrollPos - lastScrollPos) < 20) return;
 
     if (currentScrollPos > lastScrollPos && currentScrollPos > 100) {
-      // Scrolling down: hide controller
       showReaderControls(false);
     } else {
-      // Scrolling up: show controller
       showReaderControls(true);
     }
     lastScrollPos = currentScrollPos;
@@ -977,7 +1069,6 @@
           state.activeDownloadPolls.delete(chapterId);
           showToast(`Ch. ${chapterNumber} selesai diunduh. Memulai transfer file...`, 4000);
           
-          // Trigger browser file download
           const link = document.createElement('a');
           link.href = `/api/chapter/${chapterId}/file`;
           link.download = '';
