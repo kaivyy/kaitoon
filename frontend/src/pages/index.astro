@@ -1,12 +1,27 @@
 ---
+// index.astro: Kaitoon Web Reader Single Page Application entrypoint
+import Layout from '../layouts/Layout.astro';
+import Header from '../components/Header.astro';
+import StatePanels from '../components/StatePanels.astro';
+import ComicGrid from '../components/ComicGrid.astro';
+import DetailView from '../components/DetailView.astro';
+import ReaderView from '../components/ReaderView.astro';
+import EpisodeDrawer from '../components/EpisodeDrawer.astro';
+import MobileNav from '../components/MobileNav.astro';
 ---
-<!DOCTYPE html>
-<html lang="id">
-  <head>
-    <meta charset="UTF-8">
-    <title>Kaitoon</title>
-  </head>
-  <body>
-    <h1>Kaitoon Astro</h1>
-  </body>
-</html>
+
+<Layout title="Kaitoon Web Reader">
+  <Header />
+
+  <!-- Area Konten Utama -->
+  <main id="app-main" class="main-content">
+    <StatePanels />
+    <ComicGrid />
+    <DetailView />
+    <ReaderView>
+      <EpisodeDrawer />
+    </ReaderView>
+  </main>
+
+  <MobileNav />
+</Layout>
