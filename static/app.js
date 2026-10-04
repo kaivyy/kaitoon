@@ -92,6 +92,8 @@
     readerHeader: document.getElementById('reader-header'),
     readerFooter: document.getElementById('reader-footer'),
     readerExitBtn: document.getElementById('reader-exit-btn'),
+    readerHomeBtn: document.getElementById('reader-home-btn'),
+    readerDockHomeBtn: document.getElementById('reader-dock-home-btn'),
     readerMangaTitle: document.getElementById('reader-manga-title'),
     readerChapterTitle: document.getElementById('reader-chapter-title'),
     readerModeToggle: document.getElementById('reader-mode-toggle'),
@@ -1122,6 +1124,19 @@
       } else {
         switchView('catalog');
       }
+    };
+  }
+
+  // Home Buttons in Reader View
+  if (DOM.readerHomeBtn) {
+    DOM.readerHomeBtn.onclick = () => {
+      switchView('catalog');
+    };
+  }
+
+  if (DOM.readerDockHomeBtn) {
+    DOM.readerDockHomeBtn.onclick = () => {
+      switchView('catalog');
     };
   }
 

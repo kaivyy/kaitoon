@@ -178,12 +178,16 @@
       <!-- Auto-hiding Floating Header -->
       <header id="reader-header" class="reader-floating-bar reader-top-bar" role="toolbar" aria-label="Navigasi Reader Atas">
         <div class="reader-bar-left">
-          <button id="reader-exit-btn" class="btn btn-secondary reader-btn-icon" title="Kembali ke Detail" aria-label="Tutup reader">
-            <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <line x1="19" y1="12" x2="5" y2="12"></line>
-              <polyline points="12 19 5 12 12 5"></polyline>
+          <button id="reader-exit-btn" class="btn btn-secondary reader-btn-icon" title="Kembali ke Detail" aria-label="Kembali ke Detail">
+            <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="15 18 9 12 15 6"></polyline>
             </svg>
-            <span>Keluar</span>
+          </button>
+          <button id="reader-home-btn" class="btn btn-secondary reader-btn-icon" title="Beranda Katalog" aria-label="Beranda Katalog">
+            <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+              <polyline points="9 22 9 12 15 12 15 22"></polyline>
+            </svg>
           </button>
           <div class="reader-title-info">
             <span id="reader-manga-title" class="reader-comic-name"></span>
@@ -226,25 +230,41 @@
       <!-- Auto-hiding Floating Footer Dock -->
       <footer id="reader-footer" class="reader-floating-bar reader-bottom-bar" role="toolbar" aria-label="Navigasi Reader Bawah">
         <div class="reader-bottom-dock">
-          <button id="reader-prev-chapter" class="btn btn-secondary reader-nav-btn" aria-label="Chapter Sebelumnya">
-            &laquo; Prev Ch
+          <button id="reader-prev-chapter" class="btn btn-secondary reader-nav-btn reader-btn-icon" aria-label="Chapter Sebelumnya" title="Chapter Sebelumnya">
+            <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="11 17 6 12 11 7"></polyline>
+              <polyline points="18 17 13 12 18 7"></polyline>
+            </svg>
           </button>
           
-          <button id="reader-prev-page" class="btn btn-secondary manga-nav-btn" aria-label="Halaman Sebelumnya" hidden>
-            &lsaquo; Halaman
+          <button id="reader-prev-page" class="btn btn-secondary manga-nav-btn reader-btn-icon" aria-label="Halaman Sebelumnya" title="Halaman Sebelumnya" hidden>
+            <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
           </button>
 
           <div class="reader-center-controls">
             <select id="reader-chapter-select" class="chapter-select" aria-label="Pilih Chapter"></select>
+            <button id="reader-dock-home-btn" class="btn btn-secondary reader-btn-icon" aria-label="Beranda" title="Beranda">
+              <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                <polyline points="9 22 9 12 15 12 15 22"></polyline>
+              </svg>
+            </button>
             <span id="reader-page-counter" class="page-counter" hidden>Hal 1 / 1</span>
           </div>
 
-          <button id="reader-next-page" class="btn btn-secondary manga-nav-btn" aria-label="Halaman Berikutnya" hidden>
-            Halaman &rsaquo;
+          <button id="reader-next-page" class="btn btn-secondary manga-nav-btn reader-btn-icon" aria-label="Halaman Berikutnya" title="Halaman Berikutnya" hidden>
+            <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
           </button>
 
-          <button id="reader-next-chapter" class="btn btn-secondary reader-nav-btn" aria-label="Chapter Berikutnya">
-            Next Ch &raquo;
+          <button id="reader-next-chapter" class="btn btn-secondary reader-nav-btn reader-btn-icon" aria-label="Chapter Berikutnya" title="Chapter Berikutnya">
+            <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="13 17 18 12 13 7"></polyline>
+              <polyline points="6 17 11 12 6 7"></polyline>
+            </svg>
           </button>
         </div>
       </footer>

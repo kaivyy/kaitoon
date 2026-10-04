@@ -983,8 +983,13 @@ button:active {
 }
 
 .reader-btn-icon {
-  min-height: 42px;
-  padding: 6px 14px;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
 }
 
 .reader-title-info {
