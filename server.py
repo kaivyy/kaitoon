@@ -9,6 +9,13 @@ Provides REST API endpoints for:
 """
 
 import os
+import sys
+
+# Ensure parent directory is in sys.path for direct script execution
+_pkg_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _pkg_dir not in sys.path:
+    sys.path.insert(0, _pkg_dir)
+
 import asyncio
 import logging
 from contextlib import asynccontextmanager
@@ -368,3 +375,34 @@ def get_chapter_download_file(id: str):
         filename=os.path.basename(file_path),
         media_type="application/vnd.comicbook+zip",
     )
+
+
+if __name__ == "__main__":
+    import argparse
+    import uvicorn
+
+    parser = argparse.ArgumentParser(description="Kaitoon Web Reader API Server")
+    parser.add_argument("--host", default="0.0.0.0", help="Host interface to bind")
+    parser.add_argument("--port", type=int, default=8000, help="Port to listen on")
+    parser.add_argument("--reload", action="store_true", help="Enable reload mode")
+    args = parser.parse_args()
+
+    if args.reload:
+        uvicorn.run(
+            "kaitoon.server:app",
+            host=args.host,
+            port=args.port,
+            reload=True,
+            loop="asyncio",
+            http="h11",
+        )
+    else:
+        uvicorn.run(
+            app,
+            host=args.host,
+            port=args.port,
+            loop="asyncio",
+            http="h11",
+        )
+
+

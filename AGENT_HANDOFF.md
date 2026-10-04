@@ -1,4 +1,4 @@
-# 📘 KAITOON — AGENT HANDOFF & ARCHITECTURE SPECIFICATION
+# 📘 KAITOON: AGENT HANDOFF & ARCHITECTURE SPECIFICATION
 
 > **Untuk Agen AI Berikutnya**: Dokumen ini dirancang agar Anda dapat langsung melanjutkan pengembangan proyek `kaitoon` tanpa perlu melakukan investigasi ulang terhadap arsitektur web Shinigami, reverse-engineering endpoint, atau format data. Baca dokumen ini dari awal hingga akhir.
 

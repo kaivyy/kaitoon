@@ -1,4 +1,4 @@
-# Kaitoon — Shinigami Scraper & API Client
+# Kaitoon: Shinigami Scraper & API Client
 
 Folder ini dibuat untuk mengekstrak dan mengelola konten komik (manga/manhwa/manhua) dari jaringan Shinigami (`https://shinigami.to/` yang mengarah ke `https://11.shinigami.asia/`).
 
