@@ -383,7 +383,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Kaitoon Web Reader API Server")
     parser.add_argument("--host", default="0.0.0.0", help="Host interface to bind")
-    parser.add_argument("--port", type=int, default=8000, help="Port to listen on")
+    parser.add_argument("--port", type=int, default=9000, help="Port to listen on")
     parser.add_argument("--reload", action="store_true", help="Enable reload mode")
     args = parser.parse_args()
 

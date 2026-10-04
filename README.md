@@ -19,9 +19,23 @@ Folder ini dibuat untuk mengekstrak dan mengelola konten komik (manga/manhwa/man
 
 ## 🚀 Fitur Script
 
+- **`server.py` & `static/`**: Web Reader Single-Page App bebas iklan dengan tema OLED Pure Black, Dual-Mode Reader (Webtoon & Manga), serta sinkronisasi multi-device via SQLite. Default berjalan di port `9000`.
 - **`client.py`**: Modul Python core Shinigami API client (pencarian, listing, detail komik, daftar chapter, dan URL gambar).
-- **`downloader.py`**: Modul multithreaded downloader untuk mengunduh seluruh file gambar per chapter.
-- **`cli.py`**: CLI interaktif yang siap digunakan untuk navigasi dan unduhan.
+- **`downloader.py`**: Modul multithreaded downloader dan packager arsip komik digital `.cbz`.
+- **`cli.py`**: CLI interaktif yang siap digunakan untuk navigasi dan unduhan via terminal.
+
+---
+
+## 🌐 Menjalankan Web Reader (Bebas Iklan)
+
+Jalankan server lokal di port 9000:
+```bash
+cd /root/kaitoon
+python3 server.py
+# atau dengan port kustom:
+python3 server.py --port 9000
+```
+Buka browser di `http://localhost:9000` untuk membaca komik.
 
 ---
 
