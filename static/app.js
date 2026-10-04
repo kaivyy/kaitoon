@@ -250,6 +250,8 @@
     try {
       const result = await apiFetch(`/api/latest?page=${page}&page_size=24`);
       showLoading(false);
+      hideError();
+      hideEmpty();
       const items = Array.isArray(result) ? result : (result.data || []);
       
       if (!items || items.length === 0) {
@@ -277,6 +279,8 @@
     try {
       const items = await apiFetch('/api/watchlist');
       showLoading(false);
+      hideError();
+      hideEmpty();
       state.favoritesList = items || [];
 
       if (!items || items.length === 0) {
@@ -305,6 +309,8 @@
     try {
       const items = await apiFetch('/api/history?limit=50');
       showLoading(false);
+      hideError();
+      hideEmpty();
       state.historyList = items || [];
 
       if (!items || items.length === 0) {
@@ -340,6 +346,8 @@
     try {
       const result = await apiFetch(`/api/search?q=${encodeURIComponent(q)}&page=1&page_size=24`);
       showLoading(false);
+      hideError();
+      hideEmpty();
       const items = Array.isArray(result) ? result : (result.data || []);
 
       if (!items || items.length === 0) {
@@ -506,6 +514,8 @@
       ]);
 
       showLoading(false);
+      hideError();
+      hideEmpty();
       const detail = detailRes.data || detailRes;
       state.activeManga = detail;
 
@@ -689,6 +699,8 @@
       ]);
 
       showLoading(false);
+      hideError();
+      hideEmpty();
       const pages = pagesRes.pages || pagesRes.data || [];
       state.activeChapterPages = pages;
 

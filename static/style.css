@@ -34,6 +34,14 @@
   box-sizing: border-box;
 }
 
+[hidden],
+.state-container[hidden],
+.view-section[hidden],
+.pagination-bar[hidden],
+.toast[hidden] {
+  display: none !important;
+}
+
 html, body {
   margin: 0;
   padding: 0;
@@ -809,6 +817,10 @@ button {
   justify-content: center;
   padding: 64px 20px;
   text-align: center;
+}
+
+.state-container[hidden] {
+  display: none !important;
 }
 
 .spinner {
