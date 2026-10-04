@@ -813,6 +813,7 @@
         DOM.webtoonContainer.appendChild(img);
       });
       window.scrollTo(0, 0);
+      if (DOM.readerView) DOM.readerView.scrollTop = 0;
     } else {
       DOM.webtoonContainer.hidden = true;
       DOM.mangaContainer.hidden = false;
@@ -895,19 +896,16 @@
 
   // Webtoon Click to Toggle Controls
   if (DOM.webtoonContainer) {
-    DOM.webtoonContainer.onclick = (e) => {
-      // Tap outside or on padding toggles controller
-      if (e.target === DOM.webtoonContainer) {
-        toggleReaderControls();
-      }
+    DOM.webtoonContainer.onclick = () => {
+      toggleReaderControls();
     };
   }
 
   // Webtoon Scroll Auto-Hide Handler
   let lastScrollPos = 0;
-  window.addEventListener('scroll', () => {
+  function handleWebtoonScroll() {
     if (state.currentView !== 'reader' || state.readMode !== 'webtoon') return;
-    const currentScrollPos = window.scrollY;
+    const currentScrollPos = DOM.readerView ? DOM.readerView.scrollTop : window.scrollY;
     if (Math.abs(currentScrollPos - lastScrollPos) < 20) return;
 
     if (currentScrollPos > lastScrollPos && currentScrollPos > 100) {
@@ -918,7 +916,12 @@
       showReaderControls(true);
     }
     lastScrollPos = currentScrollPos;
-  }, { passive: true });
+  }
+
+  if (DOM.readerView) {
+    DOM.readerView.addEventListener('scroll', handleWebtoonScroll, { passive: true });
+  }
+  window.addEventListener('scroll', handleWebtoonScroll, { passive: true });
 
   // Download Chapter Flow (.cbz)
   async function triggerChapterDownload(chapterId, mangaTitle, chapterNumber) {
@@ -1076,9 +1079,13 @@
         }
       } else if (state.readMode === 'webtoon') {
         if (e.key === 'ArrowRight' || e.key === 'PageDown') {
-          // Advance scroll or chapter
+          e.preventDefault();
+          const target = DOM.readerView || window;
+          target.scrollBy({ top: window.innerHeight * 0.8, behavior: 'smooth' });
         } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
-          // Reverse scroll or chapter
+          e.preventDefault();
+          const target = DOM.readerView || window;
+          target.scrollBy({ top: -window.innerHeight * 0.8, behavior: 'smooth' });
         }
       }
     }

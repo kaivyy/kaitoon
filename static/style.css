@@ -196,12 +196,15 @@ button {
 .clear-btn {
   position: absolute;
   right: 6px;
-  min-width: 32px;
-  min-height: 32px;
+  min-width: 44px;
+  min-height: 44px;
   padding: 0;
   font-size: 1.2rem;
   color: var(--text-secondary);
   border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* Navigation Tabs */
@@ -598,13 +601,16 @@ button {
 }
 
 .chapter-dl-btn {
-  min-height: 36px;
-  min-width: 36px;
-  padding: 4px 8px;
-  font-size: 0.8rem;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 8px 12px;
+  font-size: 0.85rem;
   background-color: #151515;
   border: 1px solid var(--border-color);
   color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .chapter-dl-btn:hover {
