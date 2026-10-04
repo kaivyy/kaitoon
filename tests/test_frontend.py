@@ -12,9 +12,10 @@ Verifies:
 import os
 import pytest
 from fastapi.testclient import TestClient
+import kaitoon
 from kaitoon.server import app
 
-STATIC_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "static")
+STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(kaitoon.server.__file__)), "static")
 
 
 @pytest.fixture
