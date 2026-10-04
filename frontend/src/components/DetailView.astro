@@ -1,0 +1,77 @@
+---
+// DetailView.astro: Comic detail view component with cover, metadata, action buttons, and chapter list
+---
+
+<section id="detail-view" class="view-section detail-view" hidden>
+  <div class="detail-nav-bar">
+    <button id="detail-back-btn" class="btn btn-secondary nav-back-btn btn-icon" aria-label="Kembali ke Katalog">
+      <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <line x1="19" y1="12" x2="5" y2="12"></line>
+        <polyline points="12 19 5 12 12 5"></polyline>
+      </svg>
+      <span>Kembali</span>
+    </button>
+  </div>
+
+  <div class="detail-card">
+    <div class="detail-poster-wrap">
+      <img id="detail-cover" class="detail-poster" alt="Sampul Komik" referrerpolicy="no-referrer">
+    </div>
+    <div class="detail-info">
+      <h1 id="detail-title" class="detail-title"></h1>
+      <p id="detail-alt-title" class="detail-alt-title"></p>
+
+      <div class="detail-badges">
+        <span id="detail-status" class="pill pill-status"></span>
+        <span id="detail-rating" class="pill pill-rating"></span>
+        <span id="detail-views" class="pill pill-views"></span>
+      </div>
+
+      <div id="detail-genres" class="genres-list" aria-label="Daftar Genre"></div>
+
+      <div class="detail-actions">
+        <button id="detail-continue-btn" class="btn btn-primary btn-cta">
+          <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+          </svg>
+          <span>Mulai Membaca</span>
+        </button>
+        <button id="detail-favorite-btn" class="btn btn-secondary btn-fav">
+          <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+          </svg>
+          <span>Tambah ke Favorit</span>
+        </button>
+      </div>
+
+      <div class="synopsis-wrap">
+        <h2 class="synopsis-heading">Sinopsis</h2>
+        <p id="detail-synopsis" class="detail-synopsis"></p>
+      </div>
+    </div>
+  </div>
+
+  <div class="chapters-section">
+    <div class="chapters-header">
+      <div class="chapters-header-left">
+        <h2 class="section-title">Daftar Chapter</h2>
+        <span class="chapter-count-badge" id="detail-chapter-count">0</span>
+      </div>
+      <div class="chapters-header-right">
+        <div class="chapter-search-box">
+          <input type="search" id="chapter-filter-input" placeholder="Cari chapter..." aria-label="Cari chapter" autocomplete="off">
+        </div>
+        <button id="sort-order-btn" class="btn btn-secondary btn-sort" aria-label="Ubah urutan chapter">
+          <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <polyline points="19 12 12 19 5 12"></polyline>
+          </svg>
+          <span>Urutan: Terbaru &darr;</span>
+        </button>
+      </div>
+    </div>
+    <div id="chapter-list" class="chapter-list" role="list">
+      <slot />
+    </div>
+  </div>
+</section>

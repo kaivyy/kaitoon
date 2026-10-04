@@ -1,0 +1,38 @@
+---
+// ComicGrid.astro: Catalog view section with responsive comic grid and pagination dock
+interface Props {
+  title?: string;
+  count?: string;
+}
+
+const { title = "Komik Terbaru", count = "" } = Astro.props;
+---
+
+<section id="catalog-view" class="view-section">
+  <div class="view-header">
+    <div class="view-header-title-group">
+      <h2 id="catalog-title" class="view-title">{title}</h2>
+      <span id="catalog-count" class="view-subtitle view-count">{count}</span>
+    </div>
+  </div>
+  <div id="comic-grid" class="comic-grid" role="list">
+    <slot />
+  </div>
+  <div id="pagination-controls" class="pagination-bar pagination-dock" hidden>
+    <button id="prev-page-btn" class="btn btn-pagination" disabled aria-label="Halaman Sebelumnya">
+      <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <polyline points="15 18 9 12 15 6"></polyline>
+      </svg>
+      <span>Sebelumnya</span>
+    </button>
+    <div class="pagination-badge-wrap">
+      <span id="page-num-display" class="page-indicator-text">Halaman 1</span>
+    </div>
+    <button id="next-page-btn" class="btn btn-pagination" aria-label="Halaman Selanjutnya">
+      <span>Selanjutnya</span>
+      <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <polyline points="9 18 15 12 9 6"></polyline>
+      </svg>
+    </button>
+  </div>
+</section>

@@ -1,0 +1,88 @@
+---
+// ComicCard.astro: Reference component for a comic card in the catalog grid
+interface ChapterInfo {
+  number: string | number;
+  time?: string;
+  id?: string;
+}
+
+interface Props {
+  id?: string;
+  title?: string;
+  coverUrl?: string;
+  cover?: string;
+  format?: string;
+  rating?: string | number;
+  latestChapter?: string | number;
+  chapter1?: ChapterInfo;
+  chapter2?: ChapterInfo;
+}
+
+const {
+  id = "",
+  title = "Komik",
+  coverUrl,
+  cover = "",
+  format = "",
+  rating = "",
+  latestChapter = "",
+  chapter1,
+  chapter2
+} = Astro.props;
+
+const poster = coverUrl || cover;
+---
+
+<article class="comic-card" tabindex="0" role="listitem" aria-label={title} data-manga-id={id || undefined}>
+  <div class="card-poster-wrap card-thumb">
+    {poster && (
+      <img
+        class="card-poster"
+        src={poster}
+        alt={`Sampul ${title}`}
+        loading="lazy"
+        referrerpolicy="no-referrer"
+      />
+    )}
+    {format && <span class="card-badge-format">{format}</span>}
+    {rating && <span class="card-badge-rating card-rating">&#9733; {rating}</span>}
+    <div class="card-poster-shadow"></div>
+    {latestChapter && <span class="card-poster-ch-tag">Ch. {latestChapter}</span>}
+  </div>
+  <div class="card-body">
+    <h2 class="card-title">{title}</h2>
+    <div class="card-meta">
+      <span class="card-status-text">{format || "Komik"}</span>
+      {rating && <span class="card-rating">&#9733; {rating}</span>}
+    </div>
+    {chapter1 && (
+      <div class="card-chapters-list card-chapter-row">
+        <button
+          type="button"
+          class="card-ch-btn card-ch-btn-1"
+          aria-label={`Baca Chapter ${chapter1.number}`}
+          data-chapter-id={chapter1.id || undefined}
+        >
+          <span class="card-ch-name">Ch. {chapter1.number}</span>
+          <span class="card-ch-time">{chapter1.time || "Terbaru"}</span>
+        </button>
+        {chapter2 && (
+          <button
+            type="button"
+            class="card-ch-btn card-ch-btn-2"
+            aria-label={`Baca Chapter ${chapter2.number}`}
+            data-chapter-id={chapter2.id || undefined}
+          >
+            <span class="card-ch-name">Ch. {chapter2.number}</span>
+            <span class="card-ch-action">
+              <span>Baca</span>
+              <svg class="mini-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="9 18 15 12 9 6"></polyline>
+              </svg>
+            </span>
+          </button>
+        )}
+      </div>
+    )}
+  </div>
+</article>
