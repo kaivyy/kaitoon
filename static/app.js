@@ -42,6 +42,10 @@
     tabLatest: document.getElementById('tab-latest'),
     tabFavorites: document.getElementById('tab-favorites'),
     tabHistory: document.getElementById('tab-history'),
+    mobileBottomNav: document.getElementById('mobile-bottom-nav'),
+    mobileTabLatest: document.getElementById('mobile-tab-latest'),
+    mobileTabFavorites: document.getElementById('mobile-tab-favorites'),
+    mobileTabHistory: document.getElementById('mobile-tab-history'),
     toast: document.getElementById('toast'),
 
     // State Containers
@@ -184,12 +188,14 @@
       DOM.detailView.hidden = true;
       DOM.readerView.hidden = true;
       DOM.appHeader.hidden = false;
+      if (DOM.mobileBottomNav) DOM.mobileBottomNav.hidden = false;
       window.scrollTo(0, state.lastScrollY);
     } else if (viewName === 'detail') {
       DOM.catalogView.hidden = true;
       DOM.detailView.hidden = false;
       DOM.readerView.hidden = true;
       DOM.appHeader.hidden = false;
+      if (DOM.mobileBottomNav) DOM.mobileBottomNav.hidden = false;
       window.scrollTo(0, 0);
     } else if (viewName === 'reader') {
       state.lastScrollY = window.scrollY;
@@ -197,6 +203,7 @@
       DOM.detailView.hidden = true;
       DOM.readerView.hidden = false;
       DOM.appHeader.hidden = true;
+      if (DOM.mobileBottomNav) DOM.mobileBottomNav.hidden = true;
       showReaderControls(true);
     }
   }
@@ -208,20 +215,30 @@
     DOM.searchInput.value = '';
     DOM.searchClearBtn.hidden = true;
 
-    [DOM.tabLatest, DOM.tabFavorites, DOM.tabHistory].forEach(btn => {
+    [
+      DOM.tabLatest,
+      DOM.tabFavorites,
+      DOM.tabHistory,
+      DOM.mobileTabLatest,
+      DOM.mobileTabFavorites,
+      DOM.mobileTabHistory
+    ].forEach(btn => {
       if (btn) btn.classList.remove('active');
     });
 
     if (tabKey === 'latest') {
-      DOM.tabLatest.classList.add('active');
+      if (DOM.tabLatest) DOM.tabLatest.classList.add('active');
+      if (DOM.mobileTabLatest) DOM.mobileTabLatest.classList.add('active');
       DOM.catalogTitle.textContent = 'Komik Terbaru';
       loadLatestComics(1);
     } else if (tabKey === 'favorites') {
-      DOM.tabFavorites.classList.add('active');
+      if (DOM.tabFavorites) DOM.tabFavorites.classList.add('active');
+      if (DOM.mobileTabFavorites) DOM.mobileTabFavorites.classList.add('active');
       DOM.catalogTitle.textContent = 'Komik Favorit';
       loadFavorites();
     } else if (tabKey === 'history') {
-      DOM.tabHistory.classList.add('active');
+      if (DOM.tabHistory) DOM.tabHistory.classList.add('active');
+      if (DOM.mobileTabHistory) DOM.mobileTabHistory.classList.add('active');
       DOM.catalogTitle.textContent = 'Riwayat Baca';
       loadHistory();
     }
@@ -1128,6 +1145,9 @@
   if (DOM.tabLatest) DOM.tabLatest.onclick = () => switchTab('latest');
   if (DOM.tabFavorites) DOM.tabFavorites.onclick = () => switchTab('favorites');
   if (DOM.tabHistory) DOM.tabHistory.onclick = () => switchTab('history');
+  if (DOM.mobileTabLatest) DOM.mobileTabLatest.onclick = () => switchTab('latest');
+  if (DOM.mobileTabFavorites) DOM.mobileTabFavorites.onclick = () => switchTab('favorites');
+  if (DOM.mobileTabHistory) DOM.mobileTabHistory.onclick = () => switchTab('history');
 
   // Search Input Handler (400ms Debounce)
   if (DOM.searchInput) {

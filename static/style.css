@@ -43,6 +43,7 @@
 .state-container[hidden],
 .view-section[hidden],
 .pagination-bar[hidden],
+.mobile-bottom-nav[hidden],
 .toast[hidden] {
   display: none !important;
 }
@@ -1228,32 +1229,113 @@ button:active {
   max-width: 90vw;
 }
 
+/* Mobile Bottom Navigation Bar */
+.mobile-bottom-nav {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background-color: rgba(8, 8, 8, 0.96);
+  border-top: 1px solid var(--border-color);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  padding: 4px 12px;
+  padding-bottom: calc(4px + env(safe-area-inset-bottom, 0px));
+  justify-content: space-around;
+  align-items: center;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.9);
+}
+
+.mobile-nav-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 6px 4px;
+  min-height: 52px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  transition: color 0.15s ease, background-color 0.15s ease, transform 0.1s ease;
+}
+
+.mobile-nav-btn:hover {
+  color: var(--text-primary);
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
+.mobile-nav-btn:active {
+  transform: scale(0.95);
+}
+
+.mobile-nav-icon {
+  width: 22px;
+  height: 22px;
+  transition: transform 0.15s ease;
+}
+
+.mobile-nav-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.mobile-nav-btn.active {
+  color: var(--accent-emerald);
+}
+
+.mobile-nav-btn.active .mobile-nav-icon {
+  transform: translateY(-1px);
+}
+
+/* Tablet & Mobile Layout Overrides (< 768px) */
+@media (max-width: 768px) {
+  .mobile-bottom-nav {
+    display: flex;
+  }
+
+  .site-header .nav-tabs {
+    display: none !important;
+  }
+
+  .main-content {
+    padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .toast {
+    bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+    right: 16px;
+    left: 16px;
+    justify-content: center;
+    text-align: center;
+  }
+}
+
 /* Mobile Layout Overrides (< 640px) */
 @media (max-width: 639px) {
   .header-container {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 10px;
-    padding: 10px 12px;
+    padding: 10px 14px;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
   }
 
   .header-main-row {
     flex: 1 1 100%;
-    justify-content: space-between;
+    display: flex;
+    align-items: center;
+    gap: 12px;
   }
 
   .search-box {
     max-width: none;
-  }
-
-  .nav-tabs {
-    width: 100%;
-    justify-content: space-around;
-  }
-
-  .tab-btn {
     flex: 1;
-    justify-content: center;
   }
 
   .detail-actions {
