@@ -148,15 +148,16 @@ button:active {
   position: sticky;
   top: 0;
   z-index: 50;
-  background-color: #000000;
-  border-bottom: 1px solid var(--border-color);
-  backdrop-filter: blur(12px);
+  background-color: rgba(0, 0, 0, 0.85);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 }
 
 .header-container {
   max-width: var(--max-content-width);
   margin: 0 auto;
-  padding: 10px 16px;
+  padding: 8px 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -175,10 +176,10 @@ button:active {
 .brand {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 8px;
+  padding: 4px 6px;
+  border-radius: 9999px;
   min-height: 44px;
   user-select: none;
   flex-shrink: 0;
@@ -189,14 +190,14 @@ button:active {
 }
 
 .brand-icon {
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   color: var(--accent-emerald);
   flex-shrink: 0;
 }
 
 .brand-name {
-  font-size: 1.3rem;
+  font-size: 1.25rem;
   font-weight: 800;
   letter-spacing: -0.03em;
   color: var(--text-primary);
@@ -204,15 +205,15 @@ button:active {
 }
 
 .brand-badge {
-  font-size: 0.68rem;
+  font-size: 0.65rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  background-color: var(--bg-surface-elevated);
-  border: 1px solid var(--border-subtle);
+  letter-spacing: 0.06em;
+  background-color: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.28);
   color: var(--accent-emerald);
-  padding: 2px 6px;
-  border-radius: 4px;
+  padding: 2px 7px;
+  border-radius: 9999px;
 }
 
 /* Search Box */
@@ -221,14 +222,14 @@ button:active {
   display: flex;
   align-items: center;
   flex: 1 1 240px;
-  max-width: 420px;
+  max-width: 440px;
 }
 
 .search-icon {
   position: absolute;
   left: 14px;
-  width: 18px;
-  height: 18px;
+  width: 17px;
+  height: 17px;
   color: var(--text-secondary);
   pointer-events: none;
 }
@@ -236,18 +237,20 @@ button:active {
 .search-box input {
   width: 100%;
   min-height: 44px;
-  padding: 8px 40px 8px 42px;
+  padding: 8px 38px 8px 40px;
   background-color: #111111;
-  border: 1px solid var(--border-subtle);
-  border-radius: 8px;
+  border: 1px solid #222222;
+  border-radius: 9999px;
   color: var(--text-primary);
+  font-size: 0.88rem;
   outline: none;
-  transition: border-color 0.15s ease, background-color 0.15s ease;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .search-box input:focus {
-  background-color: #141414;
-  border-color: var(--border-focus);
+  background-color: #151515;
+  border-color: rgba(16, 185, 129, 0.6);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
 }
 
 .search-box input::placeholder {
@@ -262,7 +265,7 @@ button:active {
   padding: 0;
   font-size: 1.25rem;
   color: var(--text-secondary);
-  border-radius: 6px;
+  border-radius: 9999px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -276,11 +279,11 @@ button:active {
 .nav-tabs {
   display: flex;
   align-items: center;
-  gap: 4px;
-  background-color: #101010;
-  border: 1px solid var(--border-color);
-  padding: 4px;
-  border-radius: 10px;
+  gap: 2px;
+  background-color: #0d0d0d;
+  border: 1px solid #222222;
+  padding: 3px;
+  border-radius: 9999px;
   flex-shrink: 0;
 }
 
@@ -288,32 +291,33 @@ button:active {
   background: transparent;
   color: var(--text-secondary);
   font-weight: 500;
-  font-size: 0.88rem;
-  border-radius: 6px;
-  padding: 6px 14px;
+  font-size: 0.85rem;
+  border-radius: 9999px;
+  padding: 6px 16px;
   min-height: 38px;
   min-width: auto;
   border: none;
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  transition: all 0.15s ease;
 }
 
 .tab-btn .tab-icon {
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
 }
 
 .tab-btn:hover {
   color: var(--text-primary);
-  background-color: #171717;
+  background-color: rgba(255, 255, 255, 0.05);
 }
 
 .tab-btn.active {
   color: #ffffff;
   background-color: #222222;
   font-weight: 600;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
 .tab-btn.active .tab-icon {
@@ -529,19 +533,14 @@ button:active {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: auto;
   font-size: 0.8rem;
   color: var(--text-secondary);
 }
 
-.card-ch-pill {
-  background-color: #161616;
-  border: 1px solid var(--border-color);
-  padding: 2px 7px;
-  border-radius: 4px;
-  color: var(--text-secondary);
-  font-weight: 500;
+.card-status-text {
   font-size: 0.78rem;
+  color: var(--text-muted);
+  font-weight: 500;
 }
 
 .card-rating {
@@ -553,7 +552,7 @@ button:active {
 .card-chapters-list {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 6px;
   margin-top: 6px;
 }
 
@@ -562,10 +561,10 @@ button:active {
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  min-height: 32px;
-  padding: 4px 8px;
-  background-color: #141414;
-  border: 1px solid var(--border-color);
+  min-height: 34px;
+  padding: 5px 10px;
+  background-color: #121212;
+  border: 1px solid #222222;
   border-radius: 6px;
   font-size: 0.78rem;
   color: var(--text-secondary);
@@ -574,23 +573,42 @@ button:active {
 }
 
 .card-ch-btn:hover {
-  background-color: #1e1e1e;
+  background-color: #1c1c1c;
   border-color: var(--accent-emerald);
   color: #ffffff;
 }
 
-.card-ch-btn:hover .card-ch-num {
-  color: var(--accent-emerald);
-}
-
-.card-ch-num {
+.card-ch-name {
   font-weight: 700;
   color: var(--text-primary);
 }
 
+.card-ch-btn:hover .card-ch-name {
+  color: var(--accent-emerald);
+}
+
 .card-ch-time {
-  font-size: 0.7rem;
+  font-size: 0.72rem;
+  color: var(--accent-emerald);
+  font-weight: 600;
+}
+
+.card-ch-action {
+  font-size: 0.72rem;
+  font-weight: 600;
   color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.card-ch-btn:hover .card-ch-action {
+  color: var(--accent-emerald);
+}
+
+.mini-arrow {
+  width: 12px;
+  height: 12px;
 }
 
 /* Pagination Controls (Homepage / Catalog) */
@@ -1040,15 +1058,73 @@ button:active {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  background-color: rgba(14, 14, 14, 0.95);
-  border: 1px solid var(--border-subtle);
-  border-radius: 12px;
-  padding: 6px 12px;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.85);
-  backdrop-filter: blur(12px);
+  gap: 6px;
+  background-color: rgba(14, 14, 14, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+  padding: 6px 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   flex-wrap: wrap;
   max-width: 95vw;
+}
+
+.reader-dock-pill-btn {
+  border-radius: 9999px !important;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #161616;
+  border: 1px solid #282828;
+  color: var(--text-primary);
+  transition: all 0.15s ease;
+}
+
+.reader-dock-pill-btn:hover:not(:disabled) {
+  background-color: #242424;
+  border-color: #444444;
+  color: #ffffff;
+}
+
+.reader-dock-pill-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.reader-chapter-dock-btn {
+  min-height: 44px;
+  padding: 8px 16px;
+  border-radius: 9999px;
+  background-color: #1a1a1a;
+  border: 1px solid #333333;
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 0.88rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.reader-chapter-dock-btn:hover {
+  background-color: #242424;
+  border-color: var(--accent-emerald);
+  color: var(--accent-emerald);
+}
+
+.reader-chapter-dock-btn .chevron-down-svg {
+  width: 15px;
+  height: 15px;
+  opacity: 0.8;
+  margin-left: 2px;
 }
 
 .reader-floating-bar.hidden-bar {
@@ -1416,31 +1492,55 @@ button:active {
   align-items: center;
   justify-content: space-between;
   padding: 12px 14px;
-  background-color: #111111;
-  border: 1px solid var(--border-color);
+  background-color: #121212;
+  border: 1px solid #222222;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.15s ease;
+  user-select: none;
 }
 
 .episode-drawer-item:hover {
   background-color: #1a1a1a;
-  border-color: var(--border-subtle);
+  border-color: #383838;
 }
 
 .episode-drawer-item.active {
   border-color: var(--accent-emerald);
-  background-color: var(--accent-tint);
+  background-color: rgba(16, 185, 129, 0.12);
+}
+
+.ep-item-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ep-item-num {
+  font-weight: 700;
+  font-size: 0.94rem;
+  color: var(--text-primary);
 }
 
 .episode-drawer-item.active .ep-item-num {
   color: var(--accent-emerald);
 }
 
-.ep-item-num {
-  font-weight: 600;
-  font-size: 0.92rem;
-  color: var(--text-primary);
+.ep-badge-active {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background-color: rgba(16, 185, 129, 0.2);
+  color: var(--accent-emerald);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+.ep-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .ep-item-date {
@@ -1450,14 +1550,15 @@ button:active {
 
 /* Chapter End Card (Inline Next/Prev Banner instead of toast) */
 .chapter-end-card {
-  margin: 40px auto 48px auto;
-  max-width: 600px;
-  background-color: #0d0d0d;
-  border: 1px solid var(--border-subtle);
-  border-radius: 12px;
-  padding: 28px 20px;
+  margin: 40px auto 50px auto;
+  max-width: 640px;
+  width: calc(100% - 32px);
+  background-color: #0c0c0c;
+  border: 1px solid #222222;
+  border-radius: 14px;
+  padding: 30px 20px;
   text-align: center;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.9);
 }
 
 .chapter-end-badge {
@@ -1465,19 +1566,19 @@ button:active {
   font-size: 0.75rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  padding: 3px 10px;
-  border-radius: 4px;
-  background-color: var(--accent-tint);
+  letter-spacing: 0.05em;
+  padding: 3px 12px;
+  border-radius: 20px;
+  background-color: rgba(16, 185, 129, 0.15);
   border: 1px solid rgba(16, 185, 129, 0.35);
   color: var(--accent-emerald);
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 
 .chapter-end-title {
-  font-size: 1.15rem;
+  font-size: 1.2rem;
   font-weight: 700;
-  margin: 0 0 18px 0;
+  margin: 0 0 20px 0;
   color: var(--text-primary);
 }
 
@@ -1489,11 +1590,12 @@ button:active {
   flex-wrap: wrap;
 }
 
-.ch-jump-btn, .ch-home-jump-btn {
+.chapter-end-btn {
   min-height: 44px;
-  padding: 8px 16px;
-  font-size: 0.88rem;
+  padding: 10px 18px;
+  font-size: 0.9rem;
   font-weight: 600;
+  border-radius: 8px;
 }
 
 /* Toast Banner */
@@ -1524,15 +1626,15 @@ button:active {
   left: 0;
   right: 0;
   z-index: 100;
-  background-color: rgba(8, 8, 8, 0.96);
-  border-top: 1px solid var(--border-color);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  padding: 4px 12px;
+  background-color: rgba(10, 10, 10, 0.9);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  padding: 4px 16px;
   padding-bottom: calc(4px + env(safe-area-inset-bottom, 0px));
   justify-content: space-around;
   align-items: center;
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.9);
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.85);
 }
 
 .mobile-nav-btn {
@@ -1541,23 +1643,22 @@ button:active {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
-  padding: 6px 4px;
+  gap: 3px;
+  padding: 6px 8px;
   min-height: 52px;
   background: transparent;
   border: none;
-  border-radius: 8px;
+  border-radius: 12px;
   color: var(--text-secondary);
   transition: color 0.15s ease, background-color 0.15s ease, transform 0.1s ease;
 }
 
 .mobile-nav-btn:hover {
   color: var(--text-primary);
-  background-color: rgba(255, 255, 255, 0.04);
 }
 
 .mobile-nav-btn:active {
-  transform: scale(0.95);
+  transform: scale(0.94);
 }
 
 .mobile-nav-icon {

@@ -252,40 +252,55 @@
       <!-- Auto-hiding Floating Footer Dock -->
       <footer id="reader-footer" class="reader-floating-bar reader-bottom-bar" role="toolbar" aria-label="Navigasi Reader Bawah">
         <div class="reader-bottom-dock">
-          <button id="reader-prev-chapter" class="btn btn-secondary reader-nav-btn reader-btn-icon" aria-label="Chapter Sebelumnya" title="Chapter Sebelumnya">
-            <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <polyline points="11 17 6 12 11 7"></polyline>
-              <polyline points="18 17 13 12 18 7"></polyline>
+          <button id="reader-dock-home-btn" class="btn btn-secondary reader-btn-icon reader-dock-pill-btn" aria-label="Beranda Katalog" title="Beranda Katalog">
+            <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+              <polyline points="9 22 9 12 15 12 15 22"></polyline>
             </svg>
           </button>
-          
-          <button id="reader-prev-page" class="btn btn-secondary manga-nav-btn reader-btn-icon" aria-label="Halaman Sebelumnya" title="Halaman Sebelumnya" hidden>
+
+          <button id="reader-prev-chapter" class="btn btn-secondary reader-nav-btn reader-btn-icon reader-dock-pill-btn" aria-label="Chapter Sebelumnya" title="Chapter Sebelumnya">
             <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <polyline points="15 18 9 12 15 6"></polyline>
             </svg>
           </button>
 
-          <div class="reader-center-controls">
-            <select id="reader-chapter-select" class="chapter-select" aria-label="Pilih Chapter"></select>
-            <button id="reader-dock-home-btn" class="btn btn-secondary reader-btn-icon" aria-label="Beranda" title="Beranda">
-              <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-                <polyline points="9 22 9 12 15 12 15 22"></polyline>
-              </svg>
-            </button>
-            <span id="reader-page-counter" class="page-counter" hidden>Hal 1 / 1</span>
-          </div>
+          <!-- Button Chapter Floating pembuka drawer episode -->
+          <button id="reader-chapter-dock-btn" class="btn btn-secondary reader-chapter-dock-btn" aria-label="Buka Daftar Episode" title="Pilih Chapter">
+            <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <line x1="8" y1="6" x2="21" y2="6"></line>
+              <line x1="8" y1="12" x2="21" y2="12"></line>
+              <line x1="8" y1="18" x2="21" y2="18"></line>
+              <line x1="3" y1="6" x2="3.01" y2="6"></line>
+              <line x1="3" y1="12" x2="3.01" y2="12"></line>
+              <line x1="3" y1="18" x2="3.01" y2="18"></line>
+            </svg>
+            <span id="reader-dock-chapter-text">Chapter</span>
+            <svg class="btn-icon-svg chevron-down-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </button>
 
-          <button id="reader-next-page" class="btn btn-secondary manga-nav-btn reader-btn-icon" aria-label="Halaman Berikutnya" title="Halaman Berikutnya" hidden>
+          <!-- Hidden select for backward compatibility with test client -->
+          <select id="reader-chapter-select" class="chapter-select" aria-label="Pilih Chapter" hidden></select>
+
+          <button id="reader-next-chapter" class="btn btn-secondary reader-nav-btn reader-btn-icon reader-dock-pill-btn" aria-label="Chapter Berikutnya" title="Chapter Berikutnya">
             <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <polyline points="9 18 15 12 9 6"></polyline>
             </svg>
           </button>
 
-          <button id="reader-next-chapter" class="btn btn-secondary reader-nav-btn reader-btn-icon" aria-label="Chapter Berikutnya" title="Chapter Berikutnya">
+          <button id="reader-prev-page" class="btn btn-secondary manga-nav-btn reader-btn-icon reader-dock-pill-btn" aria-label="Halaman Sebelumnya" title="Halaman Sebelumnya" hidden>
             <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <polyline points="13 17 18 12 13 7"></polyline>
-              <polyline points="6 17 11 12 6 7"></polyline>
+              <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+          </button>
+
+          <span id="reader-page-counter" class="page-counter" hidden>Hal 1 / 1</span>
+
+          <button id="reader-next-page" class="btn btn-secondary manga-nav-btn reader-btn-icon reader-dock-pill-btn" aria-label="Halaman Berikutnya" title="Halaman Berikutnya" hidden>
+            <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="9 18 15 12 9 6"></polyline>
             </svg>
           </button>
         </div>

@@ -108,6 +108,8 @@
     tapNext: document.getElementById('tap-next'),
     readerPrevChapter: document.getElementById('reader-prev-chapter'),
     readerNextChapter: document.getElementById('reader-next-chapter'),
+    readerChapterDockBtn: document.getElementById('reader-chapter-dock-btn'),
+    readerDockChapterText: document.getElementById('reader-dock-chapter-text'),
     readerPrevPage: document.getElementById('reader-prev-page'),
     readerNextPage: document.getElementById('reader-next-page'),
     readerChapterSelect: document.getElementById('reader-chapter-select'),
@@ -169,6 +171,7 @@
 
   function showError(message, retryCallback = null) {
     showLoading(false);
+    hideEmpty();
     if (DOM.errorState) {
       DOM.errorState.hidden = false;
       if (DOM.errorMessage) DOM.errorMessage.textContent = message;
@@ -187,6 +190,7 @@
 
   function showEmpty(title, message, actionLabel = 'Kembali', actionCallback = null) {
     showLoading(false);
+    hideError();
     if (DOM.emptyState) {
       DOM.emptyState.hidden = false;
       if (DOM.emptyTitle) DOM.emptyTitle.textContent = title;
@@ -247,6 +251,7 @@
   function switchTab(tabKey) {
     state.activeTab = tabKey;
     state.catalogPage = 1;
+    state.lastScrollY = 0;
     DOM.searchInput.value = '';
     DOM.searchClearBtn.hidden = true;
 
@@ -465,19 +470,24 @@
         <div class="card-body">
           <h2 class="card-title">${escapeHtml(item.title || 'Tanpa Judul')}</h2>
           <div class="card-meta">
-            <span class="card-ch-pill">${latestCh ? `Ch. ${latestCh}` : 'Tersedia'}</span>
+            <span class="card-status-text">${format || 'Komik'}</span>
             ${rating ? `<span class="card-rating">&#9733; ${rating}</span>` : ''}
           </div>
           ${ch1Num ? `
           <div class="card-chapters-list">
             <button type="button" class="card-ch-btn card-ch-btn-1" aria-label="Baca Chapter ${ch1Num}">
-              <span class="card-ch-num">Ch. ${ch1Num}</span>
-              <span class="card-ch-time">${ch1Time || 'Baru'}</span>
+              <span class="card-ch-name">Ch. ${ch1Num}</span>
+              <span class="card-ch-time">${ch1Time || 'Terbaru'}</span>
             </button>
             ${ch2Num ? `
             <button type="button" class="card-ch-btn card-ch-btn-2" aria-label="Baca Chapter ${ch2Num}">
-              <span class="card-ch-num">Ch. ${ch2Num}</span>
-              <span class="card-ch-time">Sebelumnya</span>
+              <span class="card-ch-name">Ch. ${ch2Num}</span>
+              <span class="card-ch-action">
+                <span>Baca</span>
+                <svg class="mini-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+              </span>
             </button>
             ` : ''}
           </div>
@@ -546,19 +556,24 @@
         <div class="card-body">
           <h2 class="card-title">${escapeHtml(item.manga_title || 'Tanpa Judul')}</h2>
           <div class="card-meta">
-            <span class="card-ch-pill">Ch. ${latestCh}</span>
-            ${hasNew ? '<span style="color:var(--accent-emerald); font-weight:700;">Baru</span>' : ''}
+            <span class="card-status-text">${hasNew ? '<span style="color:var(--accent-emerald); font-weight:700;">Baru Diupdate</span>' : 'Favorit'}</span>
+            <span class="card-rating">&#9733; Favorit</span>
           </div>
           ${ch1Num ? `
           <div class="card-chapters-list">
             <button type="button" class="card-ch-btn card-ch-btn-1" aria-label="Baca Chapter ${ch1Num}">
-              <span class="card-ch-num">Ch. ${ch1Num}</span>
+              <span class="card-ch-name">Ch. ${ch1Num}</span>
               <span class="card-ch-time">${hasNew ? 'Update' : 'Terbaru'}</span>
             </button>
             ${ch2Num ? `
             <button type="button" class="card-ch-btn card-ch-btn-2" aria-label="Baca Chapter ${ch2Num}">
-              <span class="card-ch-num">Ch. ${ch2Num}</span>
-              <span class="card-ch-time">Sebelumnya</span>
+              <span class="card-ch-name">Ch. ${ch2Num}</span>
+              <span class="card-ch-action">
+                <span>Baca</span>
+                <svg class="mini-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+              </span>
             </button>
             ` : ''}
           </div>
@@ -616,17 +631,23 @@
         <div class="card-body">
           <h2 class="card-title">${escapeHtml(item.manga_title || 'Tanpa Judul')}</h2>
           <div class="card-meta">
-            <span class="card-ch-pill">Terakhir: Ch. ${lastCh}</span>
+            <span class="card-status-text">Riwayat Baca</span>
+            <span class="card-rating">&#9733; Terakhir</span>
           </div>
           <div class="card-chapters-list">
             <button type="button" class="card-ch-btn card-ch-btn-1" aria-label="Lanjut Chapter ${lastCh}">
-              <span class="card-ch-num">Ch. ${lastCh}</span>
+              <span class="card-ch-name">Ch. ${lastCh}</span>
               <span class="card-ch-time">Terakhir</span>
             </button>
             ${nextCh ? `
             <button type="button" class="card-ch-btn card-ch-btn-2" aria-label="Baca Chapter ${nextCh}">
-              <span class="card-ch-num">Ch. ${nextCh}</span>
-              <span class="card-ch-time">Lanjut</span>
+              <span class="card-ch-name">Ch. ${nextCh}</span>
+              <span class="card-ch-action">
+                <span>Lanjut</span>
+                <svg class="mini-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+              </span>
             </button>
             ` : ''}
           </div>
@@ -943,10 +964,11 @@
     showLoading(true);
     try {
       let manga = state.activeManga;
-      if (!manga || manga.manga_id !== mangaId) {
-        manga = await apiFetch(`/api/manga/${mangaId}`);
+      if (!manga || manga.manga_id !== mangaId || !manga.chapters) {
+        const res = await apiFetch(`/api/manga/${mangaId}`);
+        manga = res.data || res;
         state.activeManga = manga;
-        state.activeMangaId = mangaId;
+        state.activeMangaId = manga.manga_id || mangaId;
       }
       const chapters = (manga && manga.chapters) || [];
       let target = chapters.find(ch => Number(ch.chapter_number) === Number(chapterNumber));
@@ -978,14 +1000,14 @@
       const fetchPromises = [
         apiFetch(`/api/chapter/${chapterId}/pages`)
       ];
-      if (!state.activeManga || state.activeManga.manga_id !== mangaId) {
+      if (!state.activeManga || state.activeManga.manga_id !== mangaId || !state.activeManga.chapters) {
         fetchPromises.push(apiFetch(`/api/manga/${mangaId}`));
       }
 
       const results = await Promise.all(fetchPromises);
       const pagesRes = results[0];
       if (results[1]) {
-        state.activeManga = results[1];
+        state.activeManga = results[1].data || results[1];
       }
 
       saveReadingProgress(mangaId, chapterId, chapterNumber, mode);
@@ -1005,6 +1027,9 @@
       const manga = state.activeManga;
       DOM.readerMangaTitle.textContent = (manga && manga.title) || 'Komik';
       DOM.readerChapterTitle.textContent = `Chapter ${chapterNumber}`;
+      if (DOM.readerDockChapterText) {
+        DOM.readerDockChapterText.textContent = `Ch. ${chapterNumber}`;
+      }
 
       // Populate Chapter Select Dropdown
       populateChapterDropdown();
@@ -1043,9 +1068,20 @@
   // Adjacent Chapters Helper
   function getAdjacentChapters() {
     const manga = state.activeManga;
-    if (!manga || !manga.chapters) return { nextChapter: null, prevChapter: null, sortedDesc: [] };
-    const sortedDesc = [...manga.chapters].sort((a, b) => Number(b.chapter_number) - Number(a.chapter_number));
-    const currentIndex = sortedDesc.findIndex(c => c.chapter_id === state.activeChapterId);
+    if (!manga) return { nextChapter: null, prevChapter: null, sortedDesc: [] };
+    const chapters = manga.chapters || (manga.data && manga.data.chapters) || [];
+    if (chapters.length === 0) return { nextChapter: null, prevChapter: null, sortedDesc: [] };
+
+    const sortedDesc = [...chapters].sort((a, b) => Number(b.chapter_number) - Number(a.chapter_number));
+
+    let currentIndex = -1;
+    if (state.activeChapterId) {
+      currentIndex = sortedDesc.findIndex(c => (c.chapter_id && c.chapter_id === state.activeChapterId) || (c.id && c.id === state.activeChapterId));
+    }
+    if (currentIndex === -1 && state.activeChapterNumber != null) {
+      currentIndex = sortedDesc.findIndex(c => Number(c.chapter_number) === Number(state.activeChapterNumber));
+    }
+
     const nextChapter = currentIndex > 0 ? sortedDesc[currentIndex - 1] : null;
     const prevChapter = (currentIndex >= 0 && currentIndex < sortedDesc.length - 1) ? sortedDesc[currentIndex + 1] : null;
     return { nextChapter, prevChapter, sortedDesc };
@@ -1061,7 +1097,7 @@
       const opt = document.createElement('option');
       opt.value = ch.chapter_id;
       opt.textContent = `Chapter ${ch.chapter_number}`;
-      if (ch.chapter_id === state.activeChapterId) {
+      if (ch.chapter_id === state.activeChapterId || Number(ch.chapter_number) === Number(state.activeChapterNumber)) {
         opt.selected = true;
       }
       DOM.readerChapterSelect.appendChild(opt);
@@ -1086,13 +1122,15 @@
     DOM.readerPrevChapter.disabled = !prevChapter;
     DOM.readerNextChapter.disabled = !nextChapter;
 
-    DOM.readerPrevChapter.onclick = () => {
+    DOM.readerPrevChapter.onclick = (e) => {
+      e.stopPropagation();
       if (prevChapter) {
         openReader(state.activeMangaId, prevChapter.chapter_id, prevChapter.chapter_number, state.readMode);
       }
     };
 
-    DOM.readerNextChapter.onclick = () => {
+    DOM.readerNextChapter.onclick = (e) => {
+      e.stopPropagation();
       if (nextChapter) {
         openReader(state.activeMangaId, nextChapter.chapter_id, nextChapter.chapter_number, state.readMode);
       }
@@ -1166,15 +1204,24 @@
 
       const prevBtn = endCard.querySelector('.end-prev-btn');
       if (prevBtn && prevChapter) {
-        prevBtn.onclick = () => openReader(state.activeMangaId, prevChapter.chapter_id, prevChapter.chapter_number, state.readMode);
+        prevBtn.onclick = (e) => {
+          e.stopPropagation();
+          openReader(state.activeMangaId, prevChapter.chapter_id, prevChapter.chapter_number, state.readMode);
+        };
       }
       const episodesBtn = endCard.querySelector('.end-episodes-btn');
       if (episodesBtn) {
-        episodesBtn.onclick = () => openEpisodeDrawer();
+        episodesBtn.onclick = (e) => {
+          e.stopPropagation();
+          openEpisodeDrawer();
+        };
       }
       const nextBtn = endCard.querySelector('.end-next-btn');
       if (nextBtn && nextChapter) {
-        nextBtn.onclick = () => openReader(state.activeMangaId, nextChapter.chapter_id, nextChapter.chapter_number, state.readMode);
+        nextBtn.onclick = (e) => {
+          e.stopPropagation();
+          openReader(state.activeMangaId, nextChapter.chapter_id, nextChapter.chapter_number, state.readMode);
+        };
       }
 
       DOM.webtoonContainer.appendChild(endCard);
@@ -1257,11 +1304,11 @@
     if (!DOM.episodeDrawerList) return;
     DOM.episodeDrawerList.innerHTML = '';
     const manga = state.activeManga;
-    const chapters = (manga && manga.chapters) || [];
+    const chapters = (manga && (manga.chapters || (manga.data && manga.data.chapters))) || [];
 
     if (chapters.length === 0) {
       const empty = document.createElement('div');
-      empty.className = 'drawer-chapter-item';
+      empty.className = 'episode-drawer-item';
       empty.style.justifyContent = 'center';
       empty.style.color = 'var(--text-muted)';
       empty.textContent = 'Daftar episode tidak tersedia.';
@@ -1282,20 +1329,23 @@
     const sorted = [...filtered].sort((a, b) => Number(b.chapter_number || 0) - Number(a.chapter_number || 0));
 
     sorted.forEach(ch => {
-      const isCurrent = ch.chapter_id === state.activeChapterId;
+      const isCurrent = (ch.chapter_id && ch.chapter_id === state.activeChapterId) || Number(ch.chapter_number) === Number(state.activeChapterNumber);
       const item = document.createElement('div');
-      item.className = `drawer-chapter-item ${isCurrent ? 'is-current' : ''}`;
+      item.className = `episode-drawer-item ${isCurrent ? 'active' : ''}`;
       item.setAttribute('role', 'listitem');
       item.tabIndex = 0;
 
       const dateStr = ch.release_date || '';
+      const relTime = formatRelativeTime(dateStr);
 
       item.innerHTML = `
-        <div class="drawer-chapter-info">
-          <span class="drawer-chapter-num">Chapter ${ch.chapter_number}</span>
-          ${isCurrent ? '<span class="drawer-chapter-badge">Sedang Dibaca</span>' : ''}
+        <div class="ep-item-info">
+          <span class="ep-item-num">Chapter ${ch.chapter_number}</span>
+          ${isCurrent ? '<span class="ep-badge-active">Sedang Dibaca</span>' : ''}
         </div>
-        ${dateStr ? `<span class="drawer-chapter-date">${dateStr}</span>` : ''}
+        <div class="ep-item-meta">
+          ${relTime ? `<span class="ep-item-date">${relTime}</span>` : ''}
+        </div>
       `;
 
       const clickHandler = () => {
@@ -1354,7 +1404,10 @@
 
   // Webtoon Click to Toggle Controls
   if (DOM.webtoonContainer) {
-    DOM.webtoonContainer.onclick = () => {
+    DOM.webtoonContainer.onclick = (e) => {
+      if (e.target.closest('.chapter-end-card') || e.target.closest('button')) {
+        return;
+      }
       toggleReaderControls();
     };
   }
@@ -1480,6 +1533,14 @@
     };
   }
 
+  // Reader Floating Dock Chapter Button
+  if (DOM.readerChapterDockBtn) {
+    DOM.readerChapterDockBtn.onclick = (e) => {
+      e.stopPropagation();
+      openEpisodeDrawer();
+    };
+  }
+
   // Episode Drawer Close Button & Backdrop
   if (DOM.episodeDrawerClose) {
     DOM.episodeDrawerClose.onclick = () => {
@@ -1600,6 +1661,17 @@
     return div.innerHTML;
   }
 
-  // Initial Boot
-  loadLatestComics(1);
+  // Initial Boot and Refresh Handler
+  if ('scrollRestoration' in history) {
+    history.scrollRestoration = 'manual';
+  }
+  state.lastScrollY = 0;
+  window.scrollTo(0, 0);
+
+  // Return cleanly to catalog homepage on load or refresh
+  switchTab('latest');
+
+  window.addEventListener('load', () => {
+    window.scrollTo(0, 0);
+  });
 })();
