@@ -662,29 +662,12 @@ import { createReaderController } from './reader.js';
         </div>
         <div class="chapter-actions">
           <span class="chapter-date">${formatRelativeTime(releaseDate)}</span>
-          <button class="btn btn-secondary chapter-dl-btn" title="Unduh Chapter CBZ" aria-label="Unduh Chapter CBZ">
-            <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-              <polyline points="7 10 12 15 17 10"></polyline>
-              <line x1="12" y1="15" x2="12" y2="3"></line>
-            </svg>
-          </button>
         </div>
       `;
 
-      item.onclick = (e) => {
-        if (e.target.closest('.chapter-dl-btn')) return;
+      item.onclick = () => {
         openReader(state.activeMangaId, ch.chapter_id, ch.chapter_number, state.readMode);
       };
-
-      const dlBtn = item.querySelector('.chapter-dl-btn');
-      if (dlBtn) {
-        dlBtn.onclick = (e) => {
-          e.stopPropagation();
-          const title = (state.activeManga && state.activeManga.title) || 'Manga';
-          triggerChapterDownload(ch.chapter_id, title, ch.chapter_number);
-        };
-      }
 
       DOM.chapterList.appendChild(item);
     });
