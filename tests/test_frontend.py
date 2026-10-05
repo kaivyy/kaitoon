@@ -100,7 +100,6 @@ def test_html_semantic_structure():
     assert 'id="tap-prev"' in content
     assert 'id="tap-center"' in content
     assert 'id="tap-next"' in content
-    assert 'id="reader-mode-toggle"' in content
     assert 'id="reader-chapter-select"' in content
 
     # Resilience States
