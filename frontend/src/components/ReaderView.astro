@@ -56,17 +56,14 @@
         </svg>
       </button>
 
-      <!-- Button Chapter Floating pembuka drawer episode -->
-      <button id="reader-chapter-dock-btn" class="btn btn-secondary reader-chapter-dock-btn" aria-label="Buka Daftar Episode" title="Pilih Chapter">
-        <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <line x1="8" y1="6" x2="21" y2="6"></line>
-          <line x1="8" y1="12" x2="21" y2="12"></line>
-          <line x1="8" y1="18" x2="21" y2="18"></line>
-          <line x1="3" y1="6" x2="3.01" y2="6"></line>
-          <line x1="3" y1="12" x2="3.01" y2="12"></line>
-          <line x1="3" y1="18" x2="3.01" y2="18"></line>
+      <!-- Button Chapter Floating pembuka drawer episode (Icon Burger seperti Shinigami) -->
+      <button id="reader-chapter-dock-btn" class="btn btn-secondary reader-chapter-dock-btn reader-dock-pill-btn" aria-label="Buka Daftar Episode" title="Daftar Chapter (Burger Menu)">
+        <svg class="btn-icon-svg reader-burger-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="4" y1="6" x2="20" y2="6"></line>
+          <line x1="4" y1="12" x2="20" y2="12"></line>
+          <line x1="4" y1="18" x2="20" y2="18"></line>
         </svg>
-        <span id="reader-dock-chapter-text">Chapter</span>
+        <span id="reader-dock-chapter-text" class="reader-dock-chapter-text">Chapter</span>
         <svg class="btn-icon-svg chevron-down-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <polyline points="6 9 12 15 18 9"></polyline>
         </svg>
@@ -78,6 +75,30 @@
       <button id="reader-next-chapter" class="btn btn-secondary reader-nav-btn reader-btn-icon reader-dock-pill-btn" aria-label="Chapter Berikutnya" title="Chapter Berikutnya">
         <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <polyline points="9 18 15 12 9 6"></polyline>
+        </svg>
+      </button>
+
+      <!-- Pemisah Vertikal Dock -->
+      <div class="reader-dock-divider" aria-hidden="true"></div>
+
+      <!-- Button Auto Scroll Play/Pause -->
+      <button id="reader-autoscroll-btn" class="btn btn-secondary reader-dock-pill-btn reader-autoscroll-btn" aria-label="Putar Auto Scroll" title="Auto Scroll (Spasi)">
+        <svg id="reader-autoscroll-icon-play" class="btn-icon-svg" viewBox="0 0 24 24" fill="currentColor">
+          <polygon points="5 3 19 12 5 21 5 3"></polygon>
+        </svg>
+        <svg id="reader-autoscroll-icon-pause" class="btn-icon-svg" viewBox="0 0 24 24" fill="currentColor" hidden>
+          <rect x="6" y="4" width="4" height="16" rx="1"></rect>
+          <rect x="14" y="4" width="4" height="16" rx="1"></rect>
+        </svg>
+        <span id="reader-autoscroll-text" class="reader-autoscroll-text">Auto</span>
+      </button>
+
+      <!-- Button Pengaturan Kecepatan Scroll -->
+      <button id="reader-speed-btn" class="btn btn-secondary reader-dock-pill-btn reader-speed-btn" aria-label="Pengaturan Kecepatan Auto Scroll" title="Pengaturan Kecepatan Auto Scroll">
+        <span id="reader-dock-speed-text" class="reader-speed-badge">1.0x</span>
+        <svg class="btn-icon-svg reader-gear-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
         </svg>
       </button>
 
@@ -96,6 +117,80 @@
       </button>
     </div>
   </footer>
+
+  <!-- Floating Autoscroll Status Pill (Hanya muncul saat auto scroll aktif) -->
+  <div id="autoscroll-floating-pill" class="autoscroll-floating-pill" hidden>
+    <button id="floating-autoscroll-toggle" class="floating-pill-btn" aria-label="Jeda Auto Scroll" title="Jeda (Spasi)">
+      <span class="pulsing-emerald-dot" aria-hidden="true"></span>
+      <svg class="pill-icon-svg" viewBox="0 0 24 24" fill="currentColor">
+        <rect x="6" y="4" width="4" height="16" rx="1"></rect>
+        <rect x="14" y="4" width="4" height="16" rx="1"></rect>
+      </svg>
+      <span>Auto Scroll</span>
+    </button>
+    <button id="floating-speed-btn" class="floating-pill-speed" aria-label="Ubah Kecepatan" title="Ubah Kecepatan">
+      <span id="floating-speed-text">1.0x</span>
+    </button>
+  </div>
+
+  <!-- Modal Pengaturan Auto Scroll -->
+  <div id="autoscroll-modal" class="autoscroll-modal-backdrop" hidden>
+    <div class="autoscroll-modal-card" role="dialog" aria-modal="true" aria-labelledby="autoscroll-modal-title">
+      <div class="autoscroll-modal-header">
+        <div class="autoscroll-modal-title-wrap">
+          <svg class="modal-title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+          <h3 id="autoscroll-modal-title" class="autoscroll-modal-title">Kecepatan Auto Scroll</h3>
+        </div>
+        <button id="autoscroll-modal-close" class="btn btn-secondary modal-close-btn" aria-label="Tutup Pengaturan">
+          <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <div class="autoscroll-modal-body">
+        <div class="speed-indicator-wrap">
+          <span class="speed-indicator-label">Kecepatan Terpilih:</span>
+          <span id="speed-indicator-val" class="speed-indicator-val">1.0x</span>
+        </div>
+
+        <div class="speed-slider-wrap">
+          <input type="range" id="autoscroll-speed-slider" class="speed-slider" min="50" max="200" step="25" value="100" aria-label="Geser kecepatan scroll">
+          <div class="speed-ticks">
+            <span>0.5x</span>
+            <span>0.75x</span>
+            <span>1.0x</span>
+            <span>1.25x</span>
+            <span>1.5x</span>
+            <span>2.0x</span>
+          </div>
+        </div>
+
+        <div class="speed-presets-label">Pilihan Cepat (Preset):</div>
+        <div class="speed-presets-grid">
+          <button type="button" class="btn speed-preset-btn" data-speed="0.5">0.5x</button>
+          <button type="button" class="btn speed-preset-btn" data-speed="0.75">0.75x</button>
+          <button type="button" class="btn speed-preset-btn active" data-speed="1.0">1.0x</button>
+          <button type="button" class="btn speed-preset-btn" data-speed="1.25">1.25x</button>
+          <button type="button" class="btn speed-preset-btn" data-speed="1.5">1.5x</button>
+          <button type="button" class="btn speed-preset-btn" data-speed="2.0">2.0x</button>
+        </div>
+
+        <div class="autoscroll-modal-actions">
+          <button type="button" id="modal-autoscroll-toggle-btn" class="btn btn-primary modal-play-btn">
+            <svg id="modal-play-icon" class="btn-icon-svg" viewBox="0 0 24 24" fill="currentColor">
+              <polygon points="5 3 19 12 5 21 5 3"></polygon>
+            </svg>
+            <span id="modal-play-text">Mulai Auto Scroll</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <slot />
 </section>

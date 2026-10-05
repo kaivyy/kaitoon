@@ -29,7 +29,9 @@
     historyList: [],
     activeHistoryItem: null,
     lastScrollY: 0,
-    activeDownloadPolls: new Set()
+    activeDownloadPolls: new Set(),
+    isAutoScrolling: false,
+    autoScrollSpeed: parseFloat(localStorage.getItem('autoScrollSpeed')) || 1.0
   };
 
   // DOM Elements
@@ -114,6 +116,29 @@
     readerNextPage: document.getElementById('reader-next-page'),
     readerChapterSelect: document.getElementById('reader-chapter-select'),
     readerPageCounter: document.getElementById('reader-page-counter'),
+
+    // Autoscroll & Speed Settings Controls
+    readerAutoscrollBtn: document.getElementById('reader-autoscroll-btn'),
+    readerAutoscrollIconPlay: document.getElementById('reader-autoscroll-icon-play'),
+    readerAutoscrollIconPause: document.getElementById('reader-autoscroll-icon-pause'),
+    readerAutoscrollText: document.getElementById('reader-autoscroll-text'),
+    readerSpeedBtn: document.getElementById('reader-speed-btn'),
+    readerDockSpeedText: document.getElementById('reader-dock-speed-text'),
+
+    // Floating Autoscroll Status Pill
+    autoscrollFloatingPill: document.getElementById('autoscroll-floating-pill'),
+    floatingAutoscrollToggle: document.getElementById('floating-autoscroll-toggle'),
+    floatingSpeedBtn: document.getElementById('floating-speed-btn'),
+    floatingSpeedText: document.getElementById('floating-speed-text'),
+
+    // Autoscroll Settings Modal
+    autoscrollModal: document.getElementById('autoscroll-modal'),
+    autoscrollModalClose: document.getElementById('autoscroll-modal-close'),
+    speedIndicatorVal: document.getElementById('speed-indicator-val'),
+    autoscrollSpeedSlider: document.getElementById('autoscroll-speed-slider'),
+    modalAutoscrollToggleBtn: document.getElementById('modal-autoscroll-toggle-btn'),
+    modalPlayIcon: document.getElementById('modal-play-icon'),
+    modalPlayText: document.getElementById('modal-play-text'),
 
     // Episode Drawer
     episodeDrawer: document.getElementById('episode-drawer'),
@@ -228,6 +253,11 @@
     state.currentView = viewName;
     hideError();
     hideEmpty();
+
+    if (viewName !== 'reader') {
+      stopAutoScroll();
+      closeAutoScrollModal();
+    }
 
     if (viewName === 'catalog') {
       if (DOM.globalLoader && !DOM.globalLoader.hidden) {
@@ -1180,6 +1210,8 @@
   }
 
   async function openReader(mangaId, chapterId, chapterNumber, mode = 'webtoon', updateHash = true) {
+    stopAutoScroll();
+    closeAutoScrollModal();
     showLoading(true);
     state.activeMangaId = mangaId;
     state.activeChapterId = chapterId;
@@ -1626,6 +1658,7 @@
   let lastScrollPos = 0;
   function handleWebtoonScroll() {
     if (state.currentView !== 'reader' || state.readMode !== 'webtoon') return;
+    if (state.isAutoScrolling) return;
     const currentScrollPos = getCurrentReaderScroll();
     debouncedSaveWebtoonPosition();
 
@@ -1643,6 +1676,227 @@
     DOM.readerView.addEventListener('scroll', handleWebtoonScroll, { passive: true });
   }
   window.addEventListener('scroll', handleWebtoonScroll, { passive: true });
+
+  // Auto Play Scroll Engine
+  let autoScrollAnimId = null;
+  let lastAutoScrollTimestamp = 0;
+
+  function autoScrollStep(timestamp) {
+    if (!state.isAutoScrolling || state.currentView !== 'reader' || state.readMode !== 'webtoon') {
+      stopAutoScroll();
+      return;
+    }
+
+    if (!lastAutoScrollTimestamp) {
+      lastAutoScrollTimestamp = timestamp;
+    }
+    const deltaSeconds = Math.min((timestamp - lastAutoScrollTimestamp) / 1000, 0.1);
+    lastAutoScrollTimestamp = timestamp;
+
+    const currentSpeed = Number(state.autoScrollSpeed) || 1.0;
+    const pixelsToScroll = 180 * currentSpeed * deltaSeconds;
+
+    if (DOM.readerView) {
+      DOM.readerView.scrollTop += pixelsToScroll;
+    } else {
+      window.scrollBy(0, pixelsToScroll);
+    }
+
+    const scrollContainer = DOM.readerView || document.documentElement;
+    const isAtBottom = (scrollContainer.scrollTop + scrollContainer.clientHeight) >= (scrollContainer.scrollHeight - 20);
+    if (isAtBottom) {
+      stopAutoScroll();
+      showToast('Akhir chapter tercapai.');
+      return;
+    }
+
+    autoScrollAnimId = requestAnimationFrame(autoScrollStep);
+  }
+
+  function startAutoScroll() {
+    if (state.currentView !== 'reader' || state.readMode !== 'webtoon') {
+      showToast('Auto scroll hanya tersedia pada mode Webtoon.');
+      return;
+    }
+    state.isAutoScrolling = true;
+    lastAutoScrollTimestamp = 0;
+    showReaderControls(true);
+    updateAutoScrollUI(true);
+    autoScrollAnimId = requestAnimationFrame(autoScrollStep);
+  }
+
+  function stopAutoScroll() {
+    state.isAutoScrolling = false;
+    if (autoScrollAnimId) {
+      cancelAnimationFrame(autoScrollAnimId);
+      autoScrollAnimId = null;
+    }
+    lastAutoScrollTimestamp = 0;
+    updateAutoScrollUI(false);
+  }
+
+  function toggleAutoScroll() {
+    if (state.isAutoScrolling) {
+      stopAutoScroll();
+    } else {
+      startAutoScroll();
+    }
+  }
+
+  function setAutoScrollSpeed(speed) {
+    const validSpeed = Math.round(Number(speed) * 100) / 100;
+    state.autoScrollSpeed = validSpeed;
+    try {
+      localStorage.setItem('autoScrollSpeed', String(validSpeed));
+    } catch {
+      // Ignore storage errors in restricted contexts
+    }
+    updateSpeedUI(validSpeed);
+  }
+
+  function updateAutoScrollUI(isPlaying) {
+    if (DOM.readerAutoscrollBtn) {
+      if (isPlaying) {
+        DOM.readerAutoscrollBtn.classList.add('is-playing');
+        DOM.readerAutoscrollBtn.setAttribute('title', 'Jeda Auto Scroll (Spasi)');
+        if (DOM.readerAutoscrollIconPlay) DOM.readerAutoscrollIconPlay.hidden = true;
+        if (DOM.readerAutoscrollIconPause) DOM.readerAutoscrollIconPause.hidden = false;
+        if (DOM.readerAutoscrollText) DOM.readerAutoscrollText.textContent = 'Jeda';
+      } else {
+        DOM.readerAutoscrollBtn.classList.remove('is-playing');
+        DOM.readerAutoscrollBtn.setAttribute('title', 'Putar Auto Scroll (Spasi)');
+        if (DOM.readerAutoscrollIconPlay) DOM.readerAutoscrollIconPlay.hidden = false;
+        if (DOM.readerAutoscrollIconPause) DOM.readerAutoscrollIconPause.hidden = true;
+        if (DOM.readerAutoscrollText) DOM.readerAutoscrollText.textContent = 'Auto';
+      }
+    }
+
+    if (DOM.autoscrollFloatingPill) {
+      DOM.autoscrollFloatingPill.hidden = !isPlaying;
+    }
+
+    if (DOM.modalAutoscrollToggleBtn) {
+      if (DOM.modalPlayText) {
+        DOM.modalPlayText.textContent = isPlaying ? 'Jeda Auto Scroll' : 'Mulai Auto Scroll';
+      }
+      if (DOM.modalPlayIcon) {
+        DOM.modalPlayIcon.innerHTML = isPlaying
+          ? '<rect x="6" y="4" width="4" height="16" rx="1"></rect><rect x="14" y="4" width="4" height="16" rx="1"></rect>'
+          : '<polygon points="5 3 19 12 5 21 5 3"></polygon>';
+      }
+    }
+  }
+
+  function updateSpeedUI(speed) {
+    const text = `${speed}x`;
+    if (DOM.readerDockSpeedText) DOM.readerDockSpeedText.textContent = text;
+    if (DOM.floatingSpeedText) DOM.floatingSpeedText.textContent = text;
+    if (DOM.speedIndicatorVal) DOM.speedIndicatorVal.textContent = text;
+
+    if (DOM.autoscrollSpeedSlider) {
+      DOM.autoscrollSpeedSlider.value = Math.round(speed * 100);
+    }
+
+    const presetBtns = document.querySelectorAll('.speed-preset-btn');
+    presetBtns.forEach(btn => {
+      const btnSpeed = Number(btn.dataset.speed);
+      if (Math.abs(btnSpeed - speed) < 0.05) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
+    });
+  }
+
+  function openAutoScrollModal() {
+    if (!DOM.autoscrollModal) return;
+    updateSpeedUI(state.autoScrollSpeed);
+    updateAutoScrollUI(state.isAutoScrolling);
+    DOM.autoscrollModal.hidden = false;
+  }
+
+  function closeAutoScrollModal() {
+    if (!DOM.autoscrollModal) return;
+    DOM.autoscrollModal.hidden = true;
+  }
+
+  // Event Listeners for Autoscroll Controls
+  if (DOM.readerAutoscrollBtn) {
+    DOM.readerAutoscrollBtn.onclick = (e) => {
+      e.stopPropagation();
+      toggleAutoScroll();
+    };
+  }
+
+  if (DOM.readerSpeedBtn) {
+    DOM.readerSpeedBtn.onclick = (e) => {
+      e.stopPropagation();
+      openAutoScrollModal();
+    };
+  }
+
+  if (DOM.floatingAutoscrollToggle) {
+    DOM.floatingAutoscrollToggle.onclick = (e) => {
+      e.stopPropagation();
+      toggleAutoScroll();
+    };
+  }
+
+  if (DOM.floatingSpeedBtn) {
+    DOM.floatingSpeedBtn.onclick = (e) => {
+      e.stopPropagation();
+      openAutoScrollModal();
+    };
+  }
+
+  if (DOM.autoscrollModalClose) {
+    DOM.autoscrollModalClose.onclick = () => closeAutoScrollModal();
+  }
+
+  if (DOM.autoscrollModal) {
+    DOM.autoscrollModal.onclick = (e) => {
+      if (e.target === DOM.autoscrollModal) {
+        closeAutoScrollModal();
+      }
+    };
+  }
+
+  if (DOM.modalAutoscrollToggleBtn) {
+    DOM.modalAutoscrollToggleBtn.onclick = () => {
+      toggleAutoScroll();
+    };
+  }
+
+  if (DOM.autoscrollSpeedSlider) {
+    DOM.autoscrollSpeedSlider.addEventListener('input', (e) => {
+      const spd = Number(e.target.value) / 100;
+      setAutoScrollSpeed(spd);
+    });
+  }
+
+  const speedPresetButtons = document.querySelectorAll('.speed-preset-btn');
+  speedPresetButtons.forEach(btn => {
+    btn.onclick = () => {
+      const spd = Number(btn.dataset.speed);
+      if (spd) {
+        setAutoScrollSpeed(spd);
+      }
+    };
+  });
+
+  if (DOM.readerView) {
+    DOM.readerView.addEventListener('wheel', (e) => {
+      if (state.isAutoScrolling && e.deltaY < -20) {
+        stopAutoScroll();
+      }
+    }, { passive: true });
+
+    DOM.readerView.addEventListener('touchstart', () => {
+      if (state.isAutoScrolling) {
+        stopAutoScroll();
+      }
+    }, { passive: true });
+  }
 
   // Download Chapter Flow (.cbz)
   async function triggerChapterDownload(chapterId, mangaTitle, chapterNumber) {
@@ -1839,8 +2093,12 @@
 
   // Keyboard Shortcuts Listener
   window.addEventListener('keydown', (e) => {
-    // Escape key closes episode drawer, reader, or detail view
+    // Escape key closes modal, episode drawer, reader, or detail view
     if (e.key === 'Escape') {
+      if (DOM.autoscrollModal && !DOM.autoscrollModal.hidden) {
+        closeAutoScrollModal();
+        return;
+      }
       if (DOM.episodeDrawer && !DOM.episodeDrawer.hidden) {
         closeEpisodeDrawer();
         return;
@@ -1855,6 +2113,31 @@
 
     // Reader View Keyboard Navigation
     if (state.currentView === 'reader') {
+      if (e.key === ' ' || e.code === 'Space') {
+        const activeTag = document.activeElement ? document.activeElement.tagName : '';
+        if (activeTag !== 'INPUT' && activeTag !== 'TEXTAREA') {
+          e.preventDefault();
+          toggleAutoScroll();
+          return;
+        }
+      }
+
+      if (e.key === '[' || e.key === '-') {
+        e.preventDefault();
+        const newSpeed = Math.max(0.5, (Number(state.autoScrollSpeed) || 1.0) - 0.25);
+        setAutoScrollSpeed(newSpeed);
+        showToast(`Kecepatan: ${newSpeed}x`);
+        return;
+      }
+
+      if (e.key === ']' || e.key === '=' || e.key === '+') {
+        e.preventDefault();
+        const newSpeed = Math.min(2.0, (Number(state.autoScrollSpeed) || 1.0) + 0.25);
+        setAutoScrollSpeed(newSpeed);
+        showToast(`Kecepatan: ${newSpeed}x`);
+        return;
+      }
+
       if (state.readMode === 'manga') {
         if (e.key === 'ArrowRight') {
           e.preventDefault();
@@ -1893,6 +2176,7 @@
   // Mobile app/tab switch persistence and restoration
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') {
+      stopAutoScroll();
       if (state.currentView === 'reader') {
         if (state.readMode === 'webtoon') {
           saveCurrentWebtoonPosition();
@@ -1912,6 +2196,7 @@
   });
 
   window.addEventListener('pagehide', () => {
+    stopAutoScroll();
     if (state.currentView === 'reader') {
       if (state.readMode === 'webtoon') {
         saveCurrentWebtoonPosition();
@@ -1922,6 +2207,7 @@
   });
 
   window.addEventListener('beforeunload', () => {
+    stopAutoScroll();
     if (state.currentView === 'reader') {
       if (state.readMode === 'webtoon') {
         saveCurrentWebtoonPosition();
