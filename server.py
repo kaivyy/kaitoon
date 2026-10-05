@@ -18,6 +18,7 @@ if _pkg_dir not in sys.path:
 
 import asyncio
 import logging
+import re
 from contextlib import asynccontextmanager
 from typing import Any, Dict, List, Optional
 
@@ -178,6 +179,83 @@ astro_assets_dir = os.path.join(STATIC_DIR, "_astro")
 os.makedirs(astro_assets_dir, exist_ok=True)
 app.mount("/_astro", StaticFiles(directory=astro_assets_dir), name="astro")
 
+UUID_REGEX = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
+SLUG_CACHE: Dict[str, str] = {}
+
+
+def slugify(text: str) -> str:
+    """Converts a title into a URL friendly clean slug."""
+    if not text:
+        return ""
+    text = text.lower().strip()
+    text = re.sub(r"['\"’“”]+", "", text)
+    text = re.sub(r"[^a-z0-9]+", "-", text).strip("-")
+    return text
+
+
+def is_uuid_string(val: str) -> bool:
+    """Checks whether a string is a valid UUID."""
+    return bool(UUID_REGEX.match(val))
+
+
+def resolve_manga_identifier(identifier: str) -> str:
+    """
+    Resolves a manga identifier which could be either a UUID or a slug.
+    Returns the canonical manga UUID string.
+    """
+    if not identifier:
+        return identifier
+
+    if is_uuid_string(identifier):
+        return identifier
+
+    slug = slugify(identifier)
+    if slug in SLUG_CACHE:
+        return SLUG_CACHE[slug]
+
+    # Search in local DB history and watchlist
+    try:
+        hist = get_history(DEFAULT_DB_PATH)
+        for h in hist:
+            if slugify(h.get("manga_title", "")) == slug:
+                m_id = h.get("manga_id")
+                if m_id:
+                    SLUG_CACHE[slug] = m_id
+                    return m_id
+
+        wl = get_watchlist(DEFAULT_DB_PATH)
+        for w in wl:
+            if slugify(w.get("manga_title", "")) == slug:
+                m_id = w.get("manga_id")
+                if m_id:
+                    SLUG_CACHE[slug] = m_id
+                    return m_id
+    except Exception as db_err:
+        logger.warning(f"Local DB search for slug {slug} failed: {db_err}")
+
+    # Search via Shinigami API
+    try:
+        search_query = slug.replace("-", " ")
+        search_res = client.search_manga(query=search_query)
+        items = search_res.get("data", []) if isinstance(search_res, dict) else []
+        for it in items:
+            it_title = it.get("title", "")
+            it_slug = slugify(it_title)
+            if it_slug == slug:
+                m_id = it.get("manga_id")
+                if m_id:
+                    SLUG_CACHE[slug] = m_id
+                    return m_id
+        if items:
+            fallback_id = items[0].get("manga_id")
+            if fallback_id:
+                SLUG_CACHE[slug] = fallback_id
+                return fallback_id
+    except Exception as s_err:
+        logger.warning(f"API search resolution for slug {slug} failed: {s_err}")
+
+    return identifier
+
 
 @app.get("/")
 def get_root():
@@ -202,7 +280,15 @@ def get_latest_manga(
 ):
     """Retrieves list of latest updated manga from Shinigami API."""
     try:
-        return client.list_manga(page=page, page_size=page_size, sort=sort, sort_order=sort_order)
+        res = client.list_manga(page=page, page_size=page_size, sort=sort, sort_order=sort_order)
+        if isinstance(res, dict) and "data" in res and isinstance(res["data"], list):
+            for item in res["data"]:
+                if isinstance(item, dict) and "title" in item:
+                    s = slugify(item["title"])
+                    item["slug"] = s
+                    if item.get("manga_id"):
+                        SLUG_CACHE[s] = item["manga_id"]
+        return res
     except Exception as err:
         logger.error(f"Failed to fetch latest manga: {err}")
         raise HTTPException(status_code=500, detail=str(err))
@@ -218,7 +304,15 @@ def search_manga_endpoint(
     if not q.strip():
         return {"data": [], "meta": {"page": page, "page_size": page_size, "total": 0}}
     try:
-        return client.search_manga(query=q.strip(), page=page, page_size=page_size)
+        res = client.search_manga(query=q.strip(), page=page, page_size=page_size)
+        if isinstance(res, dict) and "data" in res and isinstance(res["data"], list):
+            for item in res["data"]:
+                if isinstance(item, dict) and "title" in item:
+                    s = slugify(item["title"])
+                    item["slug"] = s
+                    if item.get("manga_id"):
+                        SLUG_CACHE[s] = item["manga_id"]
+        return res
     except Exception as err:
         logger.error(f"Search request failed: {err}")
         raise HTTPException(status_code=500, detail=str(err))
@@ -234,19 +328,25 @@ def get_manga_endpoint(
 ):
     """Retrieves full manga details along with chapter listings."""
     try:
-        detail = client.get_manga_detail(id)
+        real_id = resolve_manga_identifier(id)
+        detail = client.get_manga_detail(real_id)
         try:
             if all_chapters and page is None and hasattr(client, "get_all_chapters"):
-                chapters = client.get_all_chapters(id, sort_order=sort_order)
+                chapters = client.get_all_chapters(real_id, sort_order=sort_order)
             else:
                 chapters = client.list_chapters(
-                    id, page=page or 1, page_size=page_size or 100, sort_order=sort_order
+                    real_id, page=page or 1, page_size=page_size or 100, sort_order=sort_order
                 )
             if isinstance(detail, dict) and "data" in detail and isinstance(detail["data"], dict):
                 detail["data"]["chapters"] = chapters.get("data", [])
                 detail["data"]["chapters_meta"] = chapters.get("meta", {})
+                title = detail["data"].get("title", "")
+                slug = slugify(title)
+                detail["data"]["slug"] = slug
+                if slug and real_id:
+                    SLUG_CACHE[slug] = real_id
         except Exception as ch_err:
-            logger.warning(f"Failed to fetch chapters for manga {id}: {ch_err}")
+            logger.warning(f"Failed to fetch chapters for manga {real_id}: {ch_err}")
         return detail
     except Exception as err:
         logger.error(f"Failed to fetch manga detail for {id}: {err}")

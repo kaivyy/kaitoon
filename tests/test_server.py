@@ -104,6 +104,21 @@ def test_api_manga_detail_all_chapters_pagination(client):
         assert chapters[0]["chapter_number"] == 100.0
         assert chapters[-1]["chapter_number"] == 1.0
 
+def test_api_manga_detail_slug_resolution(client):
+    mock_search = {"data": [{"manga_id": "uuid-1234", "title": "The Heavenly Sovereign"}]}
+    mock_detail = {"data": {"manga_id": "uuid-1234", "title": "The Heavenly Sovereign"}}
+    mock_chapters = {"data": [{"chapter_id": "c1", "chapter_number": 1.0}]}
+
+    with patch("kaitoon.server.client.search_manga", return_value=mock_search), \
+         patch("kaitoon.server.client.get_manga_detail", return_value=mock_detail), \
+         patch("kaitoon.server.client.list_chapters", return_value=mock_chapters):
+        res = client.get("/api/manga/the-heavenly-sovereign")
+        assert res.status_code == 200
+        data = res.json()["data"]
+        assert data["manga_id"] == "uuid-1234"
+        assert data["slug"] == "the-heavenly-sovereign"
+        assert len(data.get("chapters", [])) == 1
+
 def test_api_chapter_pages(client):
     mock_urls = ["http://img1.jpg", "http://img2.jpg"]
     with patch("kaitoon.server.client.get_chapter_image_urls", return_value=mock_urls):

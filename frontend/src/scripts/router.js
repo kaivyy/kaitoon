@@ -34,15 +34,25 @@ export async function handleRoute({ onReader, onManga, onTab }) {
     const cleanHash = rawHash.replace(/^#\/?/, '');
     const parts = cleanHash.split('/').filter(Boolean);
 
-    // Route: #/reader/{mangaId}/{chapterId}/{chapterNumber}
-    if (parts[0] === 'reader' && parts.length >= 4) {
-      const mangaId = decodeURIComponent(parts[1]);
-      const chapterId = decodeURIComponent(parts[2]);
-      const chapterNumber = decodeURIComponent(parts[3]);
-      if (onReader) {
-        await onReader(mangaId, chapterId, chapterNumber);
+    // Route: #/reader/{slug-or-id}/{chapterNumber} (Clean Route)
+    // or Route: #/reader/{mangaId}/{chapterId}/{chapterNumber} (Legacy Route)
+    if (parts[0] === 'reader') {
+      if (parts.length >= 4) {
+        const mangaId = decodeURIComponent(parts[1]);
+        const chapterId = decodeURIComponent(parts[2]);
+        const chapterNumber = decodeURIComponent(parts[3]);
+        if (onReader) {
+          await onReader(mangaId, chapterId, chapterNumber);
+        }
+        return;
+      } else if (parts.length >= 3) {
+        const mangaIdOrSlug = decodeURIComponent(parts[1]);
+        const chapterNumber = decodeURIComponent(parts[2]);
+        if (onReader) {
+          await onReader(mangaIdOrSlug, null, chapterNumber);
+        }
+        return;
       }
-      return;
     }
 
     // Route: #/manga/{mangaId}

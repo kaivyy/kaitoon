@@ -157,6 +157,27 @@ import { createReaderController } from './reader.js';
     }, duration);
   }
 
+  // Slug Helpers
+  function slugify(text) {
+    if (!text) return '';
+    return text
+      .toString()
+      .toLowerCase()
+      .trim()
+      .replace(/['"’“”]+/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+  }
+
+  function getMangaSlug(manga, fallbackId = '') {
+    if (manga && manga.slug) return manga.slug;
+    if (manga && manga.title) {
+      const s = slugify(manga.title);
+      if (s) return s;
+    }
+    return fallbackId || '';
+  }
+
   // UI State Helpers
   function showLoading(show = true) {
     if (DOM.globalLoader) DOM.globalLoader.hidden = !show;
@@ -491,11 +512,9 @@ import { createReaderController } from './reader.js';
 
   // Open Detail View
   async function openMangaDetail(mangaId, updateHash = true) {
-    state.activeMangaId = mangaId;
-
     try {
       const [detailRes, historyItems, watchlistItems] = await Promise.all([
-        apiFetch(`/api/manga/${mangaId}`),
+        apiFetch(`/api/manga/${encodeURIComponent(mangaId)}`),
         apiFetch('/api/history').catch(() => []),
         apiFetch('/api/watchlist').catch(() => [])
       ]);
@@ -504,6 +523,8 @@ import { createReaderController } from './reader.js';
       hideEmpty();
       const detail = detailRes.data || detailRes;
       state.activeManga = detail;
+      const canonicalId = (detail && detail.manga_id) || mangaId;
+      state.activeMangaId = canonicalId;
 
       if (DOM.chapterFilterInput) DOM.chapterFilterInput.value = '';
 
@@ -530,10 +551,10 @@ import { createReaderController } from './reader.js';
 
       DOM.detailSynopsis.textContent = detail.description || 'Tidak ada sinopsis yang tersedia.';
 
-      const isWatchlisted = watchlistItems.some(w => w.manga_id === mangaId);
+      const isWatchlisted = watchlistItems.some(w => w.manga_id === canonicalId);
       updateFavoriteButton(isWatchlisted);
 
-      const histItem = historyItems.find(h => h.manga_id === mangaId);
+      const histItem = historyItems.find(h => h.manga_id === canonicalId);
       state.activeHistoryItem = histItem;
       setupContinueReadingButton(detail, histItem);
 
@@ -543,7 +564,8 @@ import { createReaderController } from './reader.js';
 
       switchView('detail');
       if (updateHash) {
-        setRoute(`manga/${encodeURIComponent(mangaId)}`);
+        const slug = getMangaSlug(detail, canonicalId);
+        setRoute(`manga/${encodeURIComponent(slug)}`);
       }
     } catch (err) {
       showError(`Gagal memuat detail komik: ${err.message}`, () => openMangaDetail(mangaId, updateHash));
@@ -692,12 +714,13 @@ import { createReaderController } from './reader.js';
     }
     try {
       let manga = state.activeManga;
-      if (!manga || manga.manga_id !== mangaId || !manga.chapters) {
-        const res = await apiFetch(`/api/manga/${mangaId}`);
+      if (!manga || (manga.manga_id !== mangaId && manga.slug !== mangaId) || !manga.chapters) {
+        const res = await apiFetch(`/api/manga/${encodeURIComponent(mangaId)}`);
         manga = res.data || res;
         state.activeManga = manga;
-        state.activeMangaId = manga.manga_id || mangaId;
       }
+      const canonicalId = (manga && manga.manga_id) || mangaId;
+      state.activeMangaId = canonicalId;
       const chapters = (manga && manga.chapters) || [];
       let target = chapters.find(ch => Number(ch.chapter_number) === Number(chapterNumber));
       if (!target && chapters.length > 0) {
@@ -705,7 +728,7 @@ import { createReaderController } from './reader.js';
         target = sorted.find(c => Number(c.chapter_number) <= Number(chapterNumber)) || sorted[0];
       }
       if (target) {
-        return openReader(mangaId, target.chapter_id, target.chapter_number, state.readMode);
+        return openReader(canonicalId, target.chapter_id, target.chapter_number, state.readMode);
       } else {
         showToast(`Chapter ${chapterNumber} tidak tersedia.`);
       }
@@ -825,30 +848,50 @@ import { createReaderController } from './reader.js';
   async function openReader(mangaId, chapterId, chapterNumber, mode = 'webtoon', updateHash = true) {
     stopAutoScroll();
     closeAutoScrollModal();
-    state.activeMangaId = mangaId;
-    state.activeChapterId = chapterId;
-    state.activeChapterNumber = chapterNumber;
-    
-    const saved = getLocalProgress(mangaId, chapterId);
-    state.readMode = (saved && saved.readMode) ? saved.readMode : mode;
-    state.currentPageIndex = (saved && saved.pageIndex != null) ? Number(saved.pageIndex) : 0;
 
     try {
-      const fetchPromises = [
-        apiFetch(`/api/chapter/${chapterId}/pages`)
-      ];
-      if (!state.activeManga || state.activeManga.manga_id !== mangaId || !state.activeManga.chapters) {
-        fetchPromises.push(apiFetch(`/api/manga/${mangaId}`));
+      let manga = state.activeManga;
+      if (!manga || (manga.manga_id !== mangaId && manga.slug !== mangaId) || !manga.chapters) {
+        const mangaRes = await apiFetch(`/api/manga/${encodeURIComponent(mangaId)}`);
+        manga = mangaRes.data || mangaRes;
+        state.activeManga = manga;
       }
 
-      const results = await Promise.all(fetchPromises);
-      const pagesRes = results[0];
-      if (results[1]) {
-        state.activeManga = results[1].data || results[1];
+      const realMangaId = (manga && manga.manga_id) || mangaId;
+      state.activeMangaId = realMangaId;
+
+      let realChapterId = chapterId;
+      let realChapterNumber = chapterNumber;
+      const chapters = (manga && manga.chapters) || [];
+
+      if (!realChapterId) {
+        let target = chapters.find(ch => Number(ch.chapter_number) === Number(chapterNumber));
+        if (!target && chapters.length > 0) {
+          const sorted = [...chapters].sort((a, b) => Number(b.chapter_number) - Number(a.chapter_number));
+          target = sorted.find(c => Number(c.chapter_number) <= Number(chapterNumber)) || sorted[0];
+        }
+        if (target) {
+          realChapterId = target.chapter_id;
+          realChapterNumber = target.chapter_number;
+        } else {
+          showError(`Chapter ${chapterNumber} tidak tersedia.`);
+          return;
+        }
+      } else if (realChapterNumber == null) {
+        const chInfo = chapters.find(c => c.chapter_id === realChapterId);
+        if (chInfo) realChapterNumber = chInfo.chapter_number;
       }
 
-      saveReadingProgress(mangaId, chapterId, chapterNumber, state.readMode);
-      saveLocalProgress(mangaId, chapterId, { readMode: state.readMode });
+      state.activeChapterId = realChapterId;
+      state.activeChapterNumber = realChapterNumber;
+
+      const saved = getLocalProgress(realMangaId, realChapterId);
+      state.readMode = (saved && saved.readMode) ? saved.readMode : mode;
+      state.currentPageIndex = (saved && saved.pageIndex != null) ? Number(saved.pageIndex) : 0;
+
+      const pagesRes = await apiFetch(`/api/chapter/${realChapterId}/pages`);
+      saveReadingProgress(realMangaId, realChapterId, realChapterNumber, state.readMode);
+      saveLocalProgress(realMangaId, realChapterId, { readMode: state.readMode });
 
       hideError();
       hideEmpty();
@@ -856,15 +899,14 @@ import { createReaderController } from './reader.js';
       state.activeChapterPages = pages;
 
       if (!pages || pages.length === 0) {
-        showError('Tidak ada halaman gambar dalam chapter ini.', () => openReader(mangaId, chapterId, chapterNumber, state.readMode, updateHash));
+        showError('Tidak ada halaman gambar dalam chapter ini.', () => openReader(realMangaId, realChapterId, realChapterNumber, state.readMode, updateHash));
         return;
       }
 
-      const manga = state.activeManga;
       DOM.readerMangaTitle.textContent = (manga && manga.title) || 'Komik';
-      DOM.readerChapterTitle.textContent = `Chapter ${chapterNumber}`;
+      DOM.readerChapterTitle.textContent = `Chapter ${realChapterNumber}`;
       if (DOM.readerDockChapterText) {
-        DOM.readerDockChapterText.textContent = `Ch. ${chapterNumber}`;
+        DOM.readerDockChapterText.textContent = `Ch. ${realChapterNumber}`;
       }
 
       populateChapterDropdown();
@@ -872,7 +914,8 @@ import { createReaderController } from './reader.js';
 
       switchView('reader');
       if (updateHash) {
-        setRoute(`reader/${encodeURIComponent(mangaId)}/${encodeURIComponent(chapterId)}/${encodeURIComponent(chapterNumber)}`);
+        const slug = getMangaSlug(manga, realMangaId);
+        setRoute(`reader/${encodeURIComponent(slug)}/${encodeURIComponent(realChapterNumber)}`);
       }
     } catch (err) {
       showError(`Gagal memuat halaman chapter: ${err.message}`, () => openReader(mangaId, chapterId, chapterNumber, state.readMode, updateHash));
@@ -1410,9 +1453,11 @@ import { createReaderController } from './reader.js';
   // Navigation Button Handlers
   if (DOM.readerExitBtn) {
     DOM.readerExitBtn.onclick = () => {
-      if (state.activeMangaId) {
-        setRoute(`manga/${encodeURIComponent(state.activeMangaId)}`);
-        openMangaDetail(state.activeMangaId, false);
+      const manga = state.activeManga;
+      const slug = getMangaSlug(manga, state.activeMangaId);
+      if (slug) {
+        setRoute(`manga/${encodeURIComponent(slug)}`);
+        openMangaDetail(state.activeMangaId || slug, false);
       } else {
         setRoute('latest');
         switchTab('latest', false);
