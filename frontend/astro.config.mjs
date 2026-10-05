@@ -12,6 +12,7 @@ export default defineConfig({
   },
   vite: {
     server: {
+      hmr: false,
       proxy: {
         '/api': {
           target: 'http://localhost:9000',

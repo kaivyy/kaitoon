@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
-    "preview": "astro preview"
+    "preview": "astro preview",
+    "serve": "node serve.js"
   },
   "dependencies": {
     "astro": "^5.0.0"

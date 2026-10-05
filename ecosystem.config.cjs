@@ -15,12 +15,11 @@ module.exports = {
     },
     {
       name: 'kaitoon-frontend',
-      script: '/root/kaitoon/frontend/node_modules/astro/astro.js',
-      args: 'dev',
+      script: '/root/kaitoon/frontend/serve.js',
       cwd: '/root/kaitoon/frontend',
       env: {
-        NODE_ENV: 'development',
-        ASTRO_TELEMETRY_DISABLED: '1'
+        NODE_ENV: 'production',
+        PORT: '5555'
       },
       restart_delay: 2000,
       autorestart: true
