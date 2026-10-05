@@ -110,42 +110,93 @@ class KomikuClient:
             raw_bytes = resp.read()
             return raw_bytes.decode("utf-8", errors="replace")
 
+    def crawl_latest(self, num_pages: int = 5) -> int:
+        """
+        Crawls latest comics across multiple pages into the SQLite database.
+        Returns the number of crawled comics.
+        """
+        from concurrent.futures import ThreadPoolExecutor
+
+        def fetch_sub_page(sub_p: int) -> List[Dict[str, Any]]:
+            url = f"{self.api_url}/manga/page/{sub_p}/" if sub_p > 1 else f"{self.api_url}/manga/"
+            try:
+                html = self._fetch_html(url)
+                return self._parse_comic_cards(html)
+            except Exception as e:
+                logger.warning(f"Crawl error on Komiku sub-page {sub_p}: {e}")
+                return []
+
+        all_items = []
+        with ThreadPoolExecutor(max_workers=min(5, num_pages)) as executor:
+            page_results = list(executor.map(fetch_sub_page, range(1, num_pages + 1)))
+
+        for res in page_results:
+            all_items.extend(res)
+
+        if all_items:
+            self._save_manga_list(all_items)
+
+        logger.info(f"Crawled {len(all_items)} comics across {num_pages} Komiku pages.")
+        return len(all_items)
+
     def list_latest(self, page: int = 1, page_size: int = 20) -> Dict[str, Any]:
         """
         Retrieves list of latest updated comics from Komiku.org.
         Uses api.komiku.org HTMX partial endpoint for fast response.
+        Aggregates multiple Komiku sub-pages if page_size > 10.
         """
-        if page <= 1:
-            url = f"{self.api_url}/manga/"
-        else:
-            url = f"{self.api_url}/manga/page/{page}/"
+        num_sub_pages = max(1, (page_size + 9) // 10)
+        start_sub_page = (page - 1) * num_sub_pages + 1
+        sub_pages = list(range(start_sub_page, start_sub_page + num_sub_pages))
 
+        def fetch_sub_page(sub_p: int) -> List[Dict[str, Any]]:
+            url = f"{self.api_url}/manga/page/{sub_p}/" if sub_p > 1 else f"{self.api_url}/manga/"
+            try:
+                html = self._fetch_html(url)
+                return self._parse_comic_cards(html)
+            except Exception as e:
+                logger.warning(f"Error fetching Komiku sub-page {sub_p}: {e}")
+                return []
+
+        all_items = []
         try:
-            html = self._fetch_html(url)
-            items = self._parse_comic_cards(html)
+            if len(sub_pages) == 1:
+                all_items = fetch_sub_page(sub_pages[0])
+            else:
+                from concurrent.futures import ThreadPoolExecutor
+                with ThreadPoolExecutor(max_workers=min(4, len(sub_pages))) as executor:
+                    page_results = list(executor.map(fetch_sub_page, sub_pages))
+                for res in page_results:
+                    all_items.extend(res)
 
-            # Persist metadata to database
-            self._save_manga_list(items)
+            if all_items:
+                self._save_manga_list(all_items)
+
+            sliced_items = all_items[:page_size] if page_size else all_items
 
             return {
-                "data": items,
+                "data": sliced_items,
                 "meta": {
                     "page": page,
-                    "page_size": len(items),
+                    "page_size": len(sliced_items),
+                    "total": len(sliced_items),
+                    "has_next": len(all_items) >= page_size,
                     "server": "komiku",
                     "server_name": "Komiku.org",
                 },
             }
         except Exception as err:
             logger.error(f"Failed to fetch latest from Komiku: {err}")
-            # Fallback to local database if network fails
-            cached = self._get_cached_latest(limit=page_size)
+            offset = (page - 1) * page_size
+            cached = self._get_cached_latest(limit=page_size, offset=offset)
             if cached:
                 return {
                     "data": cached,
                     "meta": {
                         "page": page,
                         "page_size": len(cached),
+                        "total": len(cached),
+                        "has_next": len(cached) >= page_size,
                         "server": "komiku",
                         "fallback": True,
                     },
@@ -469,14 +520,14 @@ class KomikuClient:
         finally:
             conn.close()
 
-    def _get_cached_latest(self, limit: int = 20) -> List[Dict[str, Any]]:
+    def _get_cached_latest(self, limit: int = 20, offset: int = 0) -> List[Dict[str, Any]]:
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
         try:
             cur = conn.cursor()
             cur.execute(
-                "SELECT * FROM komiku_manga ORDER BY updated_at DESC LIMIT ?",
-                (limit,),
+                "SELECT * FROM komiku_manga ORDER BY updated_at DESC LIMIT ? OFFSET ?",
+                (limit, offset),
             )
             rows = cur.fetchall()
             return [

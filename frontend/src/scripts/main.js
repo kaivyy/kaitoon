@@ -359,7 +359,9 @@ import { createReaderController } from './reader.js';
       }
 
       state.catalogPage = page;
-      state.catalogHasNext = items.length >= 24;
+      state.catalogHasNext = (result && result.meta && result.meta.has_next != null)
+        ? Boolean(result.meta.has_next)
+        : items.length >= (state.activeServer === 'komiku' ? 10 : 20);
       DOM.catalogCount.textContent = `(${items.length} judul)`;
 
       renderComicGrid(items);

@@ -284,7 +284,7 @@ async def test_auto_sync_komiku_task_cycle():
     from kaitoon.server import auto_sync_komiku_task
 
     mock_kclient = MagicMock()
-    mock_kclient.list_latest.return_value = {"data": []}
+    mock_kclient.crawl_latest.return_value = 0
 
     with patch("kaitoon.server.komiku_client", mock_kclient):
         task = asyncio.create_task(auto_sync_komiku_task(interval_seconds=0))
@@ -295,7 +295,8 @@ async def test_auto_sync_komiku_task_cycle():
         except asyncio.CancelledError:
             pass
 
-    assert mock_kclient.list_latest.called
+    assert mock_kclient.crawl_latest.called
+
 
 
 

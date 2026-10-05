@@ -131,13 +131,19 @@ async def auto_sync_watchlist_task(interval_seconds: int = 1800) -> None:
 async def auto_sync_komiku_task(interval_seconds: int = 1800) -> None:
     """Background loop that periodically crawls Komiku latest releases."""
     try:
+        try:
+            crawled = await asyncio.to_thread(komiku_client.crawl_latest, num_pages=5)
+            logger.info(f"Initial Komiku crawl completed: {crawled} comics cached.")
+        except Exception as init_err:
+            logger.warning(f"Initial Komiku crawl failed: {init_err}")
+
         while True:
+            await asyncio.sleep(interval_seconds)
             try:
-                await asyncio.to_thread(komiku_client.list_latest, page=1)
-                logger.info("Komiku latest catalog crawled and cached successfully.")
+                crawled = await asyncio.to_thread(komiku_client.crawl_latest, num_pages=5)
+                logger.info(f"Komiku periodic crawl completed: {crawled} comics cached.")
             except Exception as err:
                 logger.error(f"Komiku auto-sync cycle failed: {err}")
-            await asyncio.sleep(interval_seconds)
     except asyncio.CancelledError:
         logger.info("Komiku auto-sync background worker stopped.")
 

@@ -31,7 +31,8 @@
     lastScrollY: 0,
     activeDownloadPolls: new Set(),
     isAutoScrolling: false,
-    autoScrollSpeed: parseFloat(localStorage.getItem('autoScrollSpeed')) || 1.0
+    autoScrollSpeed: parseFloat(localStorage.getItem('autoScrollSpeed')) || 1.0,
+    activeServer: localStorage.getItem('kaitoon_server') || 'shinigami'
   };
 
   // DOM Elements
@@ -70,6 +71,9 @@
     prevPageBtn: document.getElementById('prev-page-btn'),
     nextPageBtn: document.getElementById('next-page-btn'),
     pageNumDisplay: document.getElementById('page-num-display'),
+    serverSwitcherBar: document.getElementById('server-switcher-bar'),
+    serverBtnShinigami: document.getElementById('server-btn-shinigami'),
+    serverBtnKomiku: document.getElementById('server-btn-komiku'),
 
     // Detail View
     detailView: document.getElementById('detail-view'),
@@ -383,6 +387,10 @@
       if (btn) btn.classList.remove('active');
     });
 
+    if (DOM.serverSwitcherBar) {
+      DOM.serverSwitcherBar.hidden = (tabKey !== 'latest');
+    }
+
     if (tabKey === 'latest') {
       if (DOM.tabLatest) DOM.tabLatest.classList.add('active');
       if (DOM.mobileTabLatest) DOM.mobileTabLatest.classList.add('active');
@@ -402,6 +410,32 @@
     switchView('catalog');
     if (updateHash) {
       setRoute(tabKey);
+    }
+  }
+
+  // Server Switcher Controls
+  function updateServerSwitcherUI() {
+    if (!DOM.serverBtnShinigami || !DOM.serverBtnKomiku) return;
+    const isKomiku = state.activeServer === 'komiku';
+    DOM.serverBtnShinigami.classList.toggle('active', !isKomiku);
+    DOM.serverBtnShinigami.setAttribute('aria-checked', (!isKomiku).toString());
+    DOM.serverBtnKomiku.classList.toggle('active', isKomiku);
+    DOM.serverBtnKomiku.setAttribute('aria-checked', isKomiku.toString());
+  }
+
+  function switchServer(newServer) {
+    if (state.activeServer === newServer) return;
+    state.activeServer = newServer;
+    localStorage.setItem('kaitoon_server', newServer);
+    updateServerSwitcherUI();
+    showToast(newServer === 'komiku' ? 'Server beralih ke Server 2 (Komiku)' : 'Server beralih ke Server 1 (Shinigami)');
+    state.catalogPage = 1;
+    if (state.currentView === 'catalog') {
+      if (DOM.searchInput && DOM.searchInput.value.trim()) {
+        performSearch(DOM.searchInput.value.trim());
+      } else {
+        loadLatestComics(1);
+      }
     }
   }
 
@@ -425,22 +459,25 @@
     showLoading(true);
     DOM.comicGrid.innerHTML = '';
     DOM.paginationControls.hidden = true;
+    if (DOM.serverSwitcherBar) DOM.serverSwitcherBar.hidden = false;
     if (DOM.catalogCount) DOM.catalogCount.textContent = '';
 
     try {
-      const result = await apiFetch(`/api/latest?page=${page}&page_size=24`);
+      const result = await apiFetch(`/api/latest?page=${page}&page_size=24&server=${state.activeServer}`);
       showLoading(false);
       hideError();
       hideEmpty();
       const items = Array.isArray(result) ? result : (result.data || []);
       
       if (!items || items.length === 0) {
-        showEmpty('Tidak Ada Komik', 'Belum ada komik terbaru dari server.', 'Muat Ulang', () => loadLatestComics(1));
+        showEmpty('Tidak Ada Komik', 'Belum ada komik terbaru dari server ini.', 'Muat Ulang', () => loadLatestComics(1));
         return;
       }
 
       state.catalogPage = page;
-      state.catalogHasNext = items.length >= 24;
+      state.catalogHasNext = (result && result.meta && result.meta.has_next != null)
+        ? Boolean(result.meta.has_next)
+        : items.length >= (state.activeServer === 'komiku' ? 10 : 20);
       DOM.catalogCount.textContent = `(${items.length} judul)`;
 
       renderComicGrid(items);
@@ -523,11 +560,12 @@
     showLoading(true);
     DOM.comicGrid.innerHTML = '';
     DOM.paginationControls.hidden = true;
+    if (DOM.serverSwitcherBar) DOM.serverSwitcherBar.hidden = false;
     if (DOM.catalogCount) DOM.catalogCount.textContent = '';
     DOM.catalogTitle.textContent = `Hasil Pencarian: "${q}"`;
 
     try {
-      const result = await apiFetch(`/api/search?q=${encodeURIComponent(q)}&page=1&page_size=24`);
+      const result = await apiFetch(`/api/search?q=${encodeURIComponent(q)}&page=1&page_size=24&server=${state.activeServer}`);
       showLoading(false);
       hideError();
       hideEmpty();
@@ -577,7 +615,14 @@
       }
 
       const ch1Num = item.latest_chapter_number || item.latest_chapter || '';
-      const ch1Time = formatRelativeTime(item.latest_chapter_time || item.updated_at);
+      let ch1Time = 'Terbaru';
+      if (item.release_time) {
+        ch1Time = item.release_time;
+      } else if (item.latest_chapter_time || item.latest_chapter_date) {
+        ch1Time = formatRelativeTime(item.latest_chapter_time || item.latest_chapter_date) || 'Terbaru';
+      } else if (item.updated_at) {
+        ch1Time = formatRelativeTime(item.updated_at) || 'Terbaru';
+      }
       let ch2Num = '';
       if (ch1Num && Number(ch1Num) > 1) {
         ch2Num = Math.floor(Number(ch1Num)) === Number(ch1Num) ? (Number(ch1Num) - 1) : (Number(ch1Num) - 1).toFixed(1);
@@ -838,7 +883,7 @@
 
     try {
       const [detailRes, historyItems, watchlistItems] = await Promise.all([
-        apiFetch(`/api/manga/${mangaId}`),
+        apiFetch(`/api/manga/${mangaId}?server=${state.activeServer}`),
         apiFetch('/api/history').catch(() => []),
         apiFetch('/api/watchlist').catch(() => [])
       ]);
@@ -1079,7 +1124,7 @@
     try {
       let manga = state.activeManga;
       if (!manga || manga.manga_id !== mangaId || !manga.chapters) {
-        const res = await apiFetch(`/api/manga/${mangaId}`);
+        const res = await apiFetch(`/api/manga/${mangaId}?server=${state.activeServer}`);
         manga = res.data || res;
         state.activeManga = manga;
         state.activeMangaId = manga.manga_id || mangaId;
@@ -1223,10 +1268,10 @@
 
     try {
       const fetchPromises = [
-        apiFetch(`/api/chapter/${chapterId}/pages`)
+        apiFetch(`/api/chapter/${chapterId}/pages?server=${state.activeServer}`)
       ];
       if (!state.activeManga || state.activeManga.manga_id !== mangaId || !state.activeManga.chapters) {
-        fetchPromises.push(apiFetch(`/api/manga/${mangaId}`));
+        fetchPromises.push(apiFetch(`/api/manga/${mangaId}?server=${state.activeServer}`));
       }
 
       const results = await Promise.all(fetchPromises);
@@ -2211,6 +2256,15 @@
     history.scrollRestoration = 'manual';
   }
   state.lastScrollY = 0;
+
+  // Server Switcher Buttons
+  if (DOM.serverBtnShinigami) {
+    DOM.serverBtnShinigami.onclick = () => switchServer('shinigami');
+  }
+  if (DOM.serverBtnKomiku) {
+    DOM.serverBtnKomiku.onclick = () => switchServer('komiku');
+  }
+  updateServerSwitcherUI();
 
   // Restore active route (reader, manga detail, or catalog tab) on load or refresh
   handleRoute();
