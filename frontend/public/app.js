@@ -1658,9 +1658,13 @@
   let lastScrollPos = 0;
   function handleWebtoonScroll() {
     if (state.currentView !== 'reader' || state.readMode !== 'webtoon') return;
-    if (state.isAutoScrolling) return;
     const currentScrollPos = getCurrentReaderScroll();
     debouncedSaveWebtoonPosition();
+
+    if (state.isAutoScrolling) {
+      lastScrollPos = currentScrollPos;
+      return;
+    }
 
     if (Math.abs(currentScrollPos - lastScrollPos) < 20) return;
 
@@ -1720,6 +1724,7 @@
     }
     state.isAutoScrolling = true;
     lastAutoScrollTimestamp = 0;
+    lastScrollPos = getCurrentReaderScroll();
     showReaderControls(true);
     updateAutoScrollUI(true);
     autoScrollAnimId = requestAnimationFrame(autoScrollStep);
@@ -1732,6 +1737,8 @@
       autoScrollAnimId = null;
     }
     lastAutoScrollTimestamp = 0;
+    lastScrollPos = getCurrentReaderScroll();
+    showReaderControls(true);
     updateAutoScrollUI(false);
   }
 
@@ -1850,7 +1857,10 @@
   }
 
   if (DOM.autoscrollModalClose) {
-    DOM.autoscrollModalClose.onclick = () => closeAutoScrollModal();
+    DOM.autoscrollModalClose.onclick = (e) => {
+      if (e) e.stopPropagation();
+      closeAutoScrollModal();
+    };
   }
 
   if (DOM.autoscrollModal) {
@@ -1862,7 +1872,8 @@
   }
 
   if (DOM.modalAutoscrollToggleBtn) {
-    DOM.modalAutoscrollToggleBtn.onclick = () => {
+    DOM.modalAutoscrollToggleBtn.onclick = (e) => {
+      if (e) e.stopPropagation();
       toggleAutoScroll();
     };
   }
@@ -1876,7 +1887,8 @@
 
   const speedPresetButtons = document.querySelectorAll('.speed-preset-btn');
   speedPresetButtons.forEach(btn => {
-    btn.onclick = () => {
+    btn.onclick = (e) => {
+      if (e) e.stopPropagation();
       const spd = Number(btn.dataset.speed);
       if (spd) {
         setAutoScrollSpeed(spd);
@@ -1887,12 +1899,6 @@
   if (DOM.readerView) {
     DOM.readerView.addEventListener('wheel', (e) => {
       if (state.isAutoScrolling && e.deltaY < -20) {
-        stopAutoScroll();
-      }
-    }, { passive: true });
-
-    DOM.readerView.addEventListener('touchstart', () => {
-      if (state.isAutoScrolling) {
         stopAutoScroll();
       }
     }, { passive: true });
