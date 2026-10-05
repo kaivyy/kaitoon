@@ -708,7 +708,6 @@ import { createReaderController } from './reader.js';
     if (fallbackChapterId) {
       return openReader(mangaId, fallbackChapterId, chapterNumber, state.readMode);
     }
-    showLoading(true);
     try {
       let manga = state.activeManga;
       if (!manga || manga.manga_id !== mangaId || !manga.chapters) {
@@ -726,7 +725,6 @@ import { createReaderController } from './reader.js';
       if (target) {
         return openReader(mangaId, target.chapter_id, target.chapter_number, state.readMode);
       } else {
-        showLoading(false);
         showToast(`Chapter ${chapterNumber} tidak tersedia.`);
       }
     } catch (err) {
@@ -845,7 +843,6 @@ import { createReaderController } from './reader.js';
   async function openReader(mangaId, chapterId, chapterNumber, mode = 'webtoon', updateHash = true) {
     stopAutoScroll();
     closeAutoScrollModal();
-    showLoading(true);
     state.activeMangaId = mangaId;
     state.activeChapterId = chapterId;
     state.activeChapterNumber = chapterNumber;
@@ -871,7 +868,6 @@ import { createReaderController } from './reader.js';
       saveReadingProgress(mangaId, chapterId, chapterNumber, state.readMode);
       saveLocalProgress(mangaId, chapterId, { readMode: state.readMode });
 
-      showLoading(false);
       hideError();
       hideEmpty();
       const pages = pagesRes.pages || pagesRes.data || [];
