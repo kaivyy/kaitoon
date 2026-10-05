@@ -138,6 +138,13 @@ import { createReaderController } from './reader.js';
     if (show) {
       hideError();
       hideEmpty();
+      if (DOM.catalogView && state.currentView === 'catalog') {
+        DOM.catalogView.hidden = true;
+      }
+    } else {
+      if (DOM.catalogView && state.currentView === 'catalog') {
+        DOM.catalogView.hidden = false;
+      }
     }
   }
 
@@ -189,7 +196,11 @@ import { createReaderController } from './reader.js';
     hideEmpty();
 
     if (viewName === 'catalog') {
-      DOM.catalogView.hidden = false;
+      if (DOM.globalLoader && !DOM.globalLoader.hidden) {
+        DOM.catalogView.hidden = true;
+      } else {
+        DOM.catalogView.hidden = false;
+      }
       DOM.detailView.hidden = true;
       DOM.readerView.hidden = true;
       DOM.appHeader.hidden = false;
@@ -259,6 +270,7 @@ import { createReaderController } from './reader.js';
     showLoading(true);
     DOM.comicGrid.innerHTML = '';
     DOM.paginationControls.hidden = true;
+    if (DOM.catalogCount) DOM.catalogCount.textContent = '';
 
     try {
       const result = await apiFetch(`/api/latest?page=${page}&page_size=24`);
@@ -288,6 +300,7 @@ import { createReaderController } from './reader.js';
     showLoading(true);
     DOM.comicGrid.innerHTML = '';
     DOM.paginationControls.hidden = true;
+    if (DOM.catalogCount) DOM.catalogCount.textContent = '';
 
     try {
       const items = await apiFetch('/api/watchlist');
@@ -320,6 +333,7 @@ import { createReaderController } from './reader.js';
     showLoading(true);
     DOM.comicGrid.innerHTML = '';
     DOM.paginationControls.hidden = true;
+    if (DOM.catalogCount) DOM.catalogCount.textContent = '';
 
     try {
       const items = await apiFetch('/api/history');
@@ -1186,6 +1200,7 @@ import { createReaderController } from './reader.js';
     showLoading(true);
     DOM.comicGrid.innerHTML = '';
     DOM.paginationControls.hidden = true;
+    if (DOM.catalogCount) DOM.catalogCount.textContent = '';
     DOM.catalogTitle.textContent = `Hasil Pencarian: "${trimmed}"`;
 
     try {
