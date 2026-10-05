@@ -191,17 +191,22 @@
 
   // UI State Helpers
   function showLoading(show = true) {
-    if (DOM.globalLoader) DOM.globalLoader.hidden = !show;
+    if (!DOM.globalLoader) return;
     if (show) {
       hideError();
       hideEmpty();
-      if (DOM.catalogView && state.currentView === 'catalog') {
-        DOM.catalogView.hidden = true;
-      }
+      DOM.globalLoader.hidden = false;
+      DOM.globalLoader.classList.remove('is-finishing');
+      DOM.globalLoader.classList.add('is-loading');
     } else {
-      if (DOM.catalogView && state.currentView === 'catalog') {
-        DOM.catalogView.hidden = false;
-      }
+      DOM.globalLoader.classList.remove('is-loading');
+      DOM.globalLoader.classList.add('is-finishing');
+      setTimeout(() => {
+        if (!DOM.globalLoader.classList.contains('is-loading')) {
+          DOM.globalLoader.classList.remove('is-finishing');
+          DOM.globalLoader.hidden = true;
+        }
+      }, 250);
     }
   }
 
@@ -1276,12 +1281,7 @@
     }
 
     if (DOM.webtoonContainer && (!state.activeChapterPages || state.activeChapterPages.length === 0)) {
-      DOM.webtoonContainer.innerHTML = `
-        <div class="state-container reader-loader-state">
-          <div class="spinner" aria-hidden="true"></div>
-          <p class="state-text">Memuat halaman chapter...</p>
-        </div>
-      `;
+      DOM.webtoonContainer.innerHTML = '';
     }
     
     const saved = getLocalProgress(mangaId, chapterId);

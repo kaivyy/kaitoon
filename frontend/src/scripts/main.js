@@ -184,10 +184,22 @@ import { createReaderController } from './reader.js';
 
   // UI State Helpers
   function showLoading(show = true) {
-    if (DOM.globalLoader) DOM.globalLoader.hidden = !show;
+    if (!DOM.globalLoader) return;
     if (show) {
       hideError();
       hideEmpty();
+      DOM.globalLoader.hidden = false;
+      DOM.globalLoader.classList.remove('is-finishing');
+      DOM.globalLoader.classList.add('is-loading');
+    } else {
+      DOM.globalLoader.classList.remove('is-loading');
+      DOM.globalLoader.classList.add('is-finishing');
+      setTimeout(() => {
+        if (!DOM.globalLoader.classList.contains('is-loading')) {
+          DOM.globalLoader.classList.remove('is-finishing');
+          DOM.globalLoader.hidden = true;
+        }
+      }, 250);
     }
   }
 
@@ -347,9 +359,11 @@ import { createReaderController } from './reader.js';
     DOM.paginationControls.hidden = true;
     if (DOM.serverSwitcherBar) DOM.serverSwitcherBar.hidden = false;
     if (DOM.catalogCount) DOM.catalogCount.textContent = '';
+    showLoading(true);
 
     try {
       const result = await apiFetch(`/api/latest?page=${page}&page_size=24&server=${state.activeServer}`);
+      showLoading(false);
       hideError();
       hideEmpty();
       const items = Array.isArray(result) ? result : (result.data || []);
@@ -368,6 +382,7 @@ import { createReaderController } from './reader.js';
       renderComicGrid(items);
       setupPagination();
     } catch (err) {
+      showLoading(false);
       showError(`Gagal memuat komik terbaru: ${err.message}`, () => loadLatestComics(page));
     }
   }
@@ -377,9 +392,11 @@ import { createReaderController } from './reader.js';
     DOM.comicGrid.innerHTML = '';
     DOM.paginationControls.hidden = true;
     if (DOM.catalogCount) DOM.catalogCount.textContent = '';
+    showLoading(true);
 
     try {
       const items = await apiFetch('/api/watchlist');
+      showLoading(false);
       hideError();
       hideEmpty();
       state.favoritesList = items || [];
@@ -399,6 +416,7 @@ import { createReaderController } from './reader.js';
         has_new_update: item.has_new_update
       })));
     } catch (err) {
+      showLoading(false);
       showError(`Gagal memuat favorit: ${err.message}`, () => loadFavorites());
     }
   }
@@ -408,9 +426,11 @@ import { createReaderController } from './reader.js';
     DOM.comicGrid.innerHTML = '';
     DOM.paginationControls.hidden = true;
     if (DOM.catalogCount) DOM.catalogCount.textContent = '';
+    showLoading(true);
 
     try {
       const items = await apiFetch('/api/history');
+      showLoading(false);
       hideError();
       hideEmpty();
       state.historyList = items || [];
@@ -431,6 +451,7 @@ import { createReaderController } from './reader.js';
         user_rate: null
       })));
     } catch (err) {
+      showLoading(false);
       showError(`Gagal memuat riwayat: ${err.message}`, () => loadHistory());
     }
   }
@@ -900,6 +921,7 @@ import { createReaderController } from './reader.js';
     stopAutoScroll();
     closeAutoScrollModal();
     switchView('reader');
+    showLoading(true);
 
     if (state.activeManga && (state.activeManga.manga_id === mangaId || state.activeManga.slug === mangaId)) {
       DOM.readerMangaTitle.textContent = state.activeManga.title || 'Komik';
@@ -912,12 +934,7 @@ import { createReaderController } from './reader.js';
     }
 
     if (DOM.webtoonContainer && (!state.activeChapterPages || state.activeChapterPages.length === 0)) {
-      DOM.webtoonContainer.innerHTML = `
-        <div class="state-container reader-loader-state">
-          <div class="spinner" aria-hidden="true"></div>
-          <p class="state-text">Memuat halaman chapter...</p>
-        </div>
-      `;
+      DOM.webtoonContainer.innerHTML = '';
     }
 
     try {
@@ -964,6 +981,7 @@ import { createReaderController } from './reader.js';
       saveReadingProgress(realMangaId, realChapterId, realChapterNumber, state.readMode);
       saveLocalProgress(realMangaId, realChapterId, { readMode: state.readMode });
 
+      showLoading(false);
       hideError();
       hideEmpty();
       const pages = pagesRes.pages || pagesRes.data || [];
@@ -989,6 +1007,7 @@ import { createReaderController } from './reader.js';
         setRoute(`reader/${encodeURIComponent(slug)}/${encodeURIComponent(realChapterNumber)}`);
       }
     } catch (err) {
+      showLoading(false);
       showError(`Gagal memuat halaman chapter: ${err.message}`, () => openReader(mangaId, chapterId, chapterNumber, state.readMode, updateHash));
     }
   }
@@ -1650,9 +1669,11 @@ import { createReaderController } from './reader.js';
     DOM.catalogTitle.textContent = `Hasil Pencarian: "${trimmed}"`;
 
     if (DOM.serverSwitcherBar) DOM.serverSwitcherBar.hidden = false;
+    showLoading(true);
 
     try {
       const results = await apiFetch(`/api/search?q=${encodeURIComponent(trimmed)}&server=${state.activeServer}`);
+      showLoading(false);
       hideError();
       hideEmpty();
 
@@ -1666,6 +1687,7 @@ import { createReaderController } from './reader.js';
 
       renderComicGrid(items);
     } catch (err) {
+      showLoading(false);
       showError(`Gagal mencari komik: ${err.message}`, () => performSearch(trimmed));
     }
   }

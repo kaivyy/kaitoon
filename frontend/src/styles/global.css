@@ -1752,6 +1752,58 @@ html.route-detail-initial #detail-view {
   min-height: 60vh;
 }
 
+/* Top Loading Bar */
+.top-loading-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  z-index: 99999;
+  pointer-events: none;
+  background-color: transparent;
+  overflow: hidden;
+  transition: opacity 0.25s ease;
+}
+
+.top-loading-bar[hidden] {
+  display: none !important;
+}
+
+.top-loading-line {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 100%;
+  background-color: var(--accent-emerald);
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.8), 0 0 4px #10b981;
+  animation: top-bar-indeterminate 1.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  transform-origin: 0% 50%;
+}
+
+.top-loading-bar.is-finishing .top-loading-line {
+  animation: none;
+  transform: scaleX(1);
+  transition: transform 0.15s ease-out;
+}
+
+.top-loading-bar.is-finishing {
+  opacity: 0;
+}
+
+@keyframes top-bar-indeterminate {
+  0% {
+    transform: translateX(-100%) scaleX(0.2);
+  }
+  50% {
+    transform: translateX(0%) scaleX(0.6);
+  }
+  100% {
+    transform: translateX(100%) scaleX(0.2);
+  }
+}
+
 .spinner {
   width: 44px;
   height: 44px;
