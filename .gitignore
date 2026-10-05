@@ -5,3 +5,4 @@ downloads/
 .pytest_cache/
 graphify-out/
 *.db
+static/*.json
