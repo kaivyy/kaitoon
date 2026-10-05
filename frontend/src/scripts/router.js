@@ -7,6 +7,7 @@ export function setRoute(routeStr) {
   const hash = `#/${routeStr}`;
   try {
     sessionStorage.setItem('kaitoon_route', hash);
+    localStorage.setItem('kaitoon_route', hash);
   } catch {
     // Ignore storage errors in restricted contexts
   }
@@ -24,7 +25,7 @@ export async function handleRoute({ onReader, onManga, onTab }) {
     let rawHash = window.location.hash || '';
     if (!rawHash) {
       try {
-        rawHash = sessionStorage.getItem('kaitoon_route') || '';
+        rawHash = sessionStorage.getItem('kaitoon_route') || localStorage.getItem('kaitoon_route') || '';
       } catch {
         // Ignore storage errors
       }

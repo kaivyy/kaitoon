@@ -5,7 +5,7 @@
 
 import { formatRelativeTime } from './api.js';
 
-export function createReaderController({ state, DOM, openReaderCallback }) {
+export function createReaderController({ state, DOM, openReaderCallback, onPageChangeCallback }) {
   function toggleReaderControls() {
     state.isControllerVisible = !state.isControllerVisible;
     showReaderControls(state.isControllerVisible);
@@ -39,6 +39,9 @@ export function createReaderController({ state, DOM, openReaderCallback }) {
     }
     if (DOM.readerNextPage) {
       DOM.readerNextPage.disabled = idx === pages.length - 1;
+    }
+    if (typeof onPageChangeCallback === 'function') {
+      onPageChangeCallback(idx);
     }
   }
 

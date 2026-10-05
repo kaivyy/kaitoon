@@ -263,6 +263,7 @@
     const hash = `#/${routeStr}`;
     try {
       sessionStorage.setItem('kaitoon_route', hash);
+      localStorage.setItem('kaitoon_route', hash);
     } catch {
       // Ignore storage errors in restricted contexts
     }
@@ -279,7 +280,7 @@
       let rawHash = window.location.hash || '';
       if (!rawHash) {
         try {
-          rawHash = sessionStorage.getItem('kaitoon_route') || '';
+          rawHash = sessionStorage.getItem('kaitoon_route') || localStorage.getItem('kaitoon_route') || '';
         } catch {
           // Ignore storage errors
         }
@@ -1071,13 +1072,122 @@
   }
 
   // Dual-Mode Reader Implementation
+  function getStorageProgressKey(mangaId, chapterId) {
+    return `kaitoon_progress_${mangaId}_${chapterId}`;
+  }
+
+  function saveLocalProgress(mangaId, chapterId, data) {
+    if (!mangaId || !chapterId) return;
+    try {
+      const key = getStorageProgressKey(mangaId, chapterId);
+      const existing = getLocalProgress(mangaId, chapterId) || {};
+      const payload = {
+        ...existing,
+        ...data,
+        mangaId,
+        chapterId,
+        chapterNumber: state.activeChapterNumber,
+        readMode: state.readMode,
+        timestamp: Date.now()
+      };
+      localStorage.setItem(key, JSON.stringify(payload));
+      localStorage.setItem('kaitoon_last_reader', JSON.stringify({
+        mangaId,
+        chapterId,
+        chapterNumber: state.activeChapterNumber,
+        readMode: state.readMode
+      }));
+    } catch {
+      // Ignore storage errors in restricted contexts
+    }
+  }
+
+  function getLocalProgress(mangaId, chapterId) {
+    if (!mangaId || !chapterId) return null;
+    try {
+      const raw = localStorage.getItem(getStorageProgressKey(mangaId, chapterId));
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function getCurrentReaderScroll() {
+    return (DOM.readerView && DOM.readerView.scrollTop) || window.scrollY || 0;
+  }
+
+  function saveCurrentWebtoonPosition() {
+    if (state.currentView !== 'reader' || state.readMode !== 'webtoon') return;
+    if (!state.activeMangaId || !state.activeChapterId) return;
+
+    const scrollTop = getCurrentReaderScroll();
+    let imageIndex = 0;
+    if (DOM.webtoonContainer) {
+      const imgs = DOM.webtoonContainer.querySelectorAll('.webtoon-img');
+      const readerTop = DOM.readerView ? DOM.readerView.getBoundingClientRect().top : 0;
+      for (let i = 0; i < imgs.length; i++) {
+        const rect = imgs[i].getBoundingClientRect();
+        if (rect.bottom >= readerTop + 60) {
+          imageIndex = i;
+          break;
+        }
+      }
+    }
+
+    saveLocalProgress(state.activeMangaId, state.activeChapterId, {
+      scrollTop,
+      imageIndex
+    });
+  }
+
+  let webtoonScrollSaveTimer = null;
+  function debouncedSaveWebtoonPosition() {
+    if (webtoonScrollSaveTimer) clearTimeout(webtoonScrollSaveTimer);
+    webtoonScrollSaveTimer = setTimeout(() => {
+      saveCurrentWebtoonPosition();
+    }, 150);
+  }
+
+  function restoreWebtoonPosition(savedProgress) {
+    if (!savedProgress) return;
+    const targetScroll = Number(savedProgress.scrollTop) || 0;
+    const targetImageIdx = Number(savedProgress.imageIndex) || 0;
+
+    const applyScroll = () => {
+      if (DOM.readerView && targetScroll > 0) {
+        DOM.readerView.scrollTop = targetScroll;
+      }
+      if (targetScroll > 0) {
+        window.scrollTo(0, targetScroll);
+      }
+
+      if (targetImageIdx > 0 && DOM.webtoonContainer) {
+        const imgs = DOM.webtoonContainer.querySelectorAll('.webtoon-img');
+        const targetImg = imgs[targetImageIdx];
+        if (targetImg) {
+          const rect = targetImg.getBoundingClientRect();
+          if (rect.top < -300 || rect.top > window.innerHeight + 300) {
+            targetImg.scrollIntoView({ block: 'start', behavior: 'instant' });
+          }
+        }
+      }
+    };
+
+    applyScroll();
+    requestAnimationFrame(applyScroll);
+    setTimeout(applyScroll, 80);
+    setTimeout(applyScroll, 250);
+  }
+
   async function openReader(mangaId, chapterId, chapterNumber, mode = 'webtoon', updateHash = true) {
     showLoading(true);
     state.activeMangaId = mangaId;
     state.activeChapterId = chapterId;
     state.activeChapterNumber = chapterNumber;
-    state.readMode = mode;
-    state.currentPageIndex = 0;
+    
+    const saved = getLocalProgress(mangaId, chapterId);
+    state.readMode = (saved && saved.readMode) ? saved.readMode : mode;
+    state.currentPageIndex = (saved && saved.pageIndex != null) ? Number(saved.pageIndex) : 0;
 
     try {
       const fetchPromises = [
@@ -1093,7 +1203,8 @@
         state.activeManga = results[1].data || results[1];
       }
 
-      saveReadingProgress(mangaId, chapterId, chapterNumber, mode);
+      saveReadingProgress(mangaId, chapterId, chapterNumber, state.readMode);
+      saveLocalProgress(mangaId, chapterId, { readMode: state.readMode });
 
       showLoading(false);
       hideError();
@@ -1314,8 +1425,13 @@
 
       DOM.webtoonContainer.appendChild(endCard);
 
-      window.scrollTo(0, 0);
-      if (DOM.readerView) DOM.readerView.scrollTop = 0;
+      const savedProgress = getLocalProgress(state.activeMangaId, state.activeChapterId);
+      if (savedProgress && (Number(savedProgress.scrollTop) > 50 || Number(savedProgress.imageIndex) > 0)) {
+        restoreWebtoonPosition(savedProgress);
+      } else {
+        window.scrollTo(0, 0);
+        if (DOM.readerView) DOM.readerView.scrollTop = 0;
+      }
     } else {
       DOM.webtoonContainer.hidden = true;
       DOM.mangaContainer.hidden = false;
@@ -1323,6 +1439,10 @@
       DOM.readerNextPage.hidden = false;
       DOM.readerPageCounter.hidden = false;
 
+      const savedProgress = getLocalProgress(state.activeMangaId, state.activeChapterId);
+      if (savedProgress && Number(savedProgress.pageIndex) > 0) {
+        state.currentPageIndex = Math.min(Number(savedProgress.pageIndex), (pages || []).length - 1);
+      }
       updateMangaSlide();
     }
   }
@@ -1339,6 +1459,7 @@
 
     DOM.readerPrevPage.disabled = idx === 0;
     DOM.readerNextPage.disabled = idx === pages.length - 1;
+    saveLocalProgress(state.activeMangaId, state.activeChapterId, { pageIndex: idx });
   }
 
   function goToNextPage() {
@@ -1487,6 +1608,7 @@
       renderReaderMode();
       showToast(`Beralih ke mode ${state.readMode === 'webtoon' ? 'Webtoon' : 'Manga Slide'}`);
       saveReadingProgress(state.activeMangaId, state.activeChapterId, state.activeChapterNumber, state.readMode);
+      saveLocalProgress(state.activeMangaId, state.activeChapterId, { readMode: state.readMode });
     };
   }
 
@@ -1500,11 +1622,13 @@
     };
   }
 
-  // Webtoon Scroll Auto-Hide Handler
+  // Webtoon Scroll Auto-Hide and Position Saving Handler
   let lastScrollPos = 0;
   function handleWebtoonScroll() {
     if (state.currentView !== 'reader' || state.readMode !== 'webtoon') return;
-    const currentScrollPos = DOM.readerView ? DOM.readerView.scrollTop : window.scrollY;
+    const currentScrollPos = getCurrentReaderScroll();
+    debouncedSaveWebtoonPosition();
+
     if (Math.abs(currentScrollPos - lastScrollPos) < 20) return;
 
     if (currentScrollPos > lastScrollPos && currentScrollPos > 100) {
@@ -1764,6 +1888,47 @@
   // Window Hashchange Listener for back and forward navigation
   window.addEventListener('hashchange', () => {
     handleRoute();
+  });
+
+  // Mobile app/tab switch persistence and restoration
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      if (state.currentView === 'reader') {
+        if (state.readMode === 'webtoon') {
+          saveCurrentWebtoonPosition();
+        } else if (state.readMode === 'manga') {
+          saveLocalProgress(state.activeMangaId, state.activeChapterId, { pageIndex: state.currentPageIndex });
+        }
+      }
+    } else if (document.visibilityState === 'visible') {
+      if (state.currentView === 'reader' && state.readMode === 'webtoon') {
+        const currentScroll = getCurrentReaderScroll();
+        const saved = getLocalProgress(state.activeMangaId, state.activeChapterId);
+        if (currentScroll < 20 && saved && (Number(saved.scrollTop) > 50 || Number(saved.imageIndex) > 0)) {
+          restoreWebtoonPosition(saved);
+        }
+      }
+    }
+  });
+
+  window.addEventListener('pagehide', () => {
+    if (state.currentView === 'reader') {
+      if (state.readMode === 'webtoon') {
+        saveCurrentWebtoonPosition();
+      } else if (state.readMode === 'manga') {
+        saveLocalProgress(state.activeMangaId, state.activeChapterId, { pageIndex: state.currentPageIndex });
+      }
+    }
+  });
+
+  window.addEventListener('beforeunload', () => {
+    if (state.currentView === 'reader') {
+      if (state.readMode === 'webtoon') {
+        saveCurrentWebtoonPosition();
+      } else if (state.readMode === 'manga') {
+        saveLocalProgress(state.activeMangaId, state.activeChapterId, { pageIndex: state.currentPageIndex });
+      }
+    }
   });
 
   // Initial Boot and Route Dispatcher
