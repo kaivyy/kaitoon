@@ -163,13 +163,6 @@ import { createReaderController } from './reader.js';
     if (show) {
       hideError();
       hideEmpty();
-      if (DOM.catalogView && state.currentView === 'catalog') {
-        DOM.catalogView.hidden = true;
-      }
-    } else {
-      if (DOM.catalogView && state.currentView === 'catalog') {
-        DOM.catalogView.hidden = false;
-      }
     }
   }
 
@@ -226,17 +219,14 @@ import { createReaderController } from './reader.js';
     }
 
     if (viewName === 'catalog') {
-      if (DOM.globalLoader && !DOM.globalLoader.hidden) {
-        DOM.catalogView.hidden = true;
-      } else {
-        DOM.catalogView.hidden = false;
-      }
+      DOM.catalogView.hidden = false;
       DOM.detailView.hidden = true;
       DOM.readerView.hidden = true;
       DOM.appHeader.hidden = false;
       if (DOM.mobileBottomNav) DOM.mobileBottomNav.hidden = false;
       window.scrollTo(0, state.lastScrollY || 0);
-    } else if (viewName === 'detail') {
+    }
+ else if (viewName === 'detail') {
       DOM.catalogView.hidden = true;
       DOM.detailView.hidden = false;
       DOM.readerView.hidden = true;
@@ -297,14 +287,12 @@ import { createReaderController } from './reader.js';
 
   // Load Latest Comics
   async function loadLatestComics(page = 1) {
-    showLoading(true);
     DOM.comicGrid.innerHTML = '';
     DOM.paginationControls.hidden = true;
     if (DOM.catalogCount) DOM.catalogCount.textContent = '';
 
     try {
       const result = await apiFetch(`/api/latest?page=${page}&page_size=24`);
-      showLoading(false);
       hideError();
       hideEmpty();
       const items = Array.isArray(result) ? result : (result.data || []);
@@ -327,14 +315,12 @@ import { createReaderController } from './reader.js';
 
   // Load Watchlist
   async function loadFavorites() {
-    showLoading(true);
     DOM.comicGrid.innerHTML = '';
     DOM.paginationControls.hidden = true;
     if (DOM.catalogCount) DOM.catalogCount.textContent = '';
 
     try {
       const items = await apiFetch('/api/watchlist');
-      showLoading(false);
       hideError();
       hideEmpty();
       state.favoritesList = items || [];
@@ -360,14 +346,12 @@ import { createReaderController } from './reader.js';
 
   // Load History
   async function loadHistory() {
-    showLoading(true);
     DOM.comicGrid.innerHTML = '';
     DOM.paginationControls.hidden = true;
     if (DOM.catalogCount) DOM.catalogCount.textContent = '';
 
     try {
       const items = await apiFetch('/api/history');
-      showLoading(false);
       hideError();
       hideEmpty();
       state.historyList = items || [];
@@ -507,7 +491,6 @@ import { createReaderController } from './reader.js';
 
   // Open Detail View
   async function openMangaDetail(mangaId, updateHash = true) {
-    showLoading(true);
     state.activeMangaId = mangaId;
 
     try {
@@ -517,7 +500,6 @@ import { createReaderController } from './reader.js';
         apiFetch('/api/watchlist').catch(() => [])
       ]);
 
-      showLoading(false);
       hideError();
       hideEmpty();
       const detail = detailRes.data || detailRes;
@@ -1546,7 +1528,6 @@ import { createReaderController } from './reader.js';
       return;
     }
 
-    showLoading(true);
     DOM.comicGrid.innerHTML = '';
     DOM.paginationControls.hidden = true;
     if (DOM.catalogCount) DOM.catalogCount.textContent = '';
@@ -1554,7 +1535,6 @@ import { createReaderController } from './reader.js';
 
     try {
       const results = await apiFetch(`/api/search?q=${encodeURIComponent(trimmed)}`);
-      showLoading(false);
       hideError();
       hideEmpty();
 
