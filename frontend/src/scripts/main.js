@@ -1249,20 +1249,18 @@ import { createReaderController } from './reader.js';
       if (isPlaying) {
         DOM.readerAutoscrollBtn.classList.add('is-playing');
         DOM.readerAutoscrollBtn.setAttribute('title', 'Jeda Auto Scroll (Spasi)');
+        DOM.readerAutoscrollBtn.setAttribute('aria-label', 'Jeda Auto Scroll');
         if (DOM.readerAutoscrollIconPlay) DOM.readerAutoscrollIconPlay.hidden = true;
         if (DOM.readerAutoscrollIconPause) DOM.readerAutoscrollIconPause.hidden = false;
         if (DOM.readerAutoscrollText) DOM.readerAutoscrollText.textContent = 'Jeda';
       } else {
         DOM.readerAutoscrollBtn.classList.remove('is-playing');
         DOM.readerAutoscrollBtn.setAttribute('title', 'Putar Auto Scroll (Spasi)');
+        DOM.readerAutoscrollBtn.setAttribute('aria-label', 'Putar Auto Scroll');
         if (DOM.readerAutoscrollIconPlay) DOM.readerAutoscrollIconPlay.hidden = false;
         if (DOM.readerAutoscrollIconPause) DOM.readerAutoscrollIconPause.hidden = true;
         if (DOM.readerAutoscrollText) DOM.readerAutoscrollText.textContent = 'Auto';
       }
-    }
-
-    if (DOM.autoscrollFloatingPill) {
-      DOM.autoscrollFloatingPill.hidden = !isPlaying;
     }
 
     if (DOM.modalAutoscrollToggleBtn) {
@@ -1280,7 +1278,6 @@ import { createReaderController } from './reader.js';
   function updateSpeedUI(speed) {
     const text = `${speed}x`;
     if (DOM.readerDockSpeedText) DOM.readerDockSpeedText.textContent = text;
-    if (DOM.floatingSpeedText) DOM.floatingSpeedText.textContent = text;
     if (DOM.speedIndicatorVal) DOM.speedIndicatorVal.textContent = text;
 
     if (DOM.autoscrollSpeedSlider) {
@@ -1320,20 +1317,6 @@ import { createReaderController } from './reader.js';
 
   if (DOM.readerSpeedBtn) {
     DOM.readerSpeedBtn.onclick = (e) => {
-      e.stopPropagation();
-      openAutoScrollModal();
-    };
-  }
-
-  if (DOM.floatingAutoscrollToggle) {
-    DOM.floatingAutoscrollToggle.onclick = (e) => {
-      e.stopPropagation();
-      toggleAutoScroll();
-    };
-  }
-
-  if (DOM.floatingSpeedBtn) {
-    DOM.floatingSpeedBtn.onclick = (e) => {
       e.stopPropagation();
       openAutoScrollModal();
     };
