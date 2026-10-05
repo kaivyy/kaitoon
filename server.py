@@ -215,7 +215,7 @@ def resolve_manga_identifier(identifier: str) -> str:
 
     # Search in local DB history and watchlist
     try:
-        hist = get_history(DEFAULT_DB_PATH)
+        hist = get_history(db_path=DEFAULT_DB_PATH)
         for h in hist:
             if slugify(h.get("manga_title", "")) == slug:
                 m_id = h.get("manga_id")
@@ -223,7 +223,7 @@ def resolve_manga_identifier(identifier: str) -> str:
                     SLUG_CACHE[slug] = m_id
                     return m_id
 
-        wl = get_watchlist(DEFAULT_DB_PATH)
+        wl = get_watchlist(db_path=DEFAULT_DB_PATH)
         for w in wl:
             if slugify(w.get("manga_title", "")) == slug:
                 m_id = w.get("manga_id")
