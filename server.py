@@ -172,6 +172,9 @@ app.add_middleware(
 )
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+astro_assets_dir = os.path.join(STATIC_DIR, "_astro")
+os.makedirs(astro_assets_dir, exist_ok=True)
+app.mount("/_astro", StaticFiles(directory=astro_assets_dir), name="astro")
 
 
 @app.get("/")
