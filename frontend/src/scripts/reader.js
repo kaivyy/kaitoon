@@ -22,14 +22,54 @@ export function createReaderController({ state, DOM, openReaderCallback, onPageC
     }
   }
 
+  function preloadNearbyImages(pages, currentIndex) {
+    if (!pages || pages.length === 0) return;
+    const targets = [
+      currentIndex + 1,
+      currentIndex + 2,
+      currentIndex + 3,
+      currentIndex - 1
+    ];
+    for (const i of targets) {
+      if (i >= 0 && i < pages.length && pages[i]) {
+        const img = new Image();
+        img.referrerPolicy = 'no-referrer';
+        img.src = pages[i];
+      }
+    }
+  }
+
   function updateMangaSlide() {
     const pages = state.activeChapterPages || [];
     const idx = state.currentPageIndex;
     if (pages.length === 0) return;
 
-    if (DOM.mangaSlideImg) {
-      DOM.mangaSlideImg.src = pages[idx];
-      DOM.mangaSlideImg.alt = `Halaman ${idx + 1} dari ${pages.length}`;
+    const targetUrl = pages[idx];
+    if (DOM.mangaSlideImg && targetUrl) {
+      const probe = new Image();
+      probe.referrerPolicy = 'no-referrer';
+      probe.src = targetUrl;
+
+      if (probe.complete) {
+        DOM.mangaSlideImg.src = targetUrl;
+        DOM.mangaSlideImg.alt = `Halaman ${idx + 1} dari ${pages.length}`;
+        DOM.mangaSlideImg.style.opacity = '1';
+      } else {
+        DOM.mangaSlideImg.style.opacity = '0.6';
+        probe.onload = () => {
+          if (state.currentPageIndex === idx && DOM.mangaSlideImg) {
+            DOM.mangaSlideImg.src = targetUrl;
+            DOM.mangaSlideImg.alt = `Halaman ${idx + 1} dari ${pages.length}`;
+            DOM.mangaSlideImg.style.opacity = '1';
+          }
+        };
+        probe.onerror = () => {
+          if (state.currentPageIndex === idx && DOM.mangaSlideImg) {
+            DOM.mangaSlideImg.src = targetUrl;
+            DOM.mangaSlideImg.style.opacity = '1';
+          }
+        };
+      }
     }
     if (DOM.readerPageCounter) {
       DOM.readerPageCounter.textContent = `${idx + 1} / ${pages.length}`;
@@ -43,6 +83,7 @@ export function createReaderController({ state, DOM, openReaderCallback, onPageC
     if (typeof onPageChangeCallback === 'function') {
       onPageChangeCallback(idx);
     }
+    preloadNearbyImages(pages, idx);
   }
 
   function goToNextPage(getAdjacentChapters) {
@@ -166,6 +207,7 @@ export function createReaderController({ state, DOM, openReaderCallback, onPageC
     goToPrevPage,
     openEpisodeDrawer,
     closeEpisodeDrawer,
-    renderEpisodeDrawerList
+    renderEpisodeDrawerList,
+    preloadNearbyImages
   };
 }

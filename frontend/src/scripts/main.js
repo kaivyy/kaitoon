@@ -34,7 +34,8 @@ import { createReaderController } from './reader.js';
     activeDownloadPolls: new Set(),
     isAutoScrolling: false,
     autoScrollSpeed: parseFloat(localStorage.getItem('autoScrollSpeed')) || 1.0,
-    activeServer: localStorage.getItem('kaitoon_server') || 'shinigami'
+    activeServer: localStorage.getItem('kaitoon_server') || 'shinigami',
+    renderedTab: 'latest'
   };
 
   // DOM Elements Cache
@@ -282,14 +283,8 @@ import { createReaderController } from './reader.js';
     }
   }
 
-  // Tab Navigation
-  function switchTab(tabKey, updateHash = true) {
-    state.activeTab = tabKey;
-    state.catalogPage = 1;
-    state.lastScrollY = 0;
-    if (DOM.searchInput) DOM.searchInput.value = '';
-    if (DOM.searchClearBtn) DOM.searchClearBtn.hidden = true;
-
+  // Tab Navigation UI
+  function updateTabButtonsUI(tabKey) {
     [
       DOM.tabLatest,
       DOM.tabFavorites,
@@ -301,24 +296,59 @@ import { createReaderController } from './reader.js';
       if (btn) btn.classList.remove('active');
     });
 
+    if (tabKey === 'latest') {
+      if (DOM.tabLatest) DOM.tabLatest.classList.add('active');
+      if (DOM.mobileTabLatest) DOM.mobileTabLatest.classList.add('active');
+      if (DOM.catalogTitle) DOM.catalogTitle.textContent = 'Komik Terbaru';
+    } else if (tabKey === 'favorites') {
+      if (DOM.tabFavorites) DOM.tabFavorites.classList.add('active');
+      if (DOM.mobileTabFavorites) DOM.mobileTabFavorites.classList.add('active');
+      if (DOM.catalogTitle) DOM.catalogTitle.textContent = 'Komik Favorit';
+    } else if (tabKey === 'history') {
+      if (DOM.tabHistory) DOM.tabHistory.classList.add('active');
+      if (DOM.mobileTabHistory) DOM.mobileTabHistory.classList.add('active');
+      if (DOM.catalogTitle) DOM.catalogTitle.textContent = 'Riwayat Baca';
+    }
+  }
+
+  // Smooth Catalog Return without Blank Screen
+  function returnToCatalog(targetTab = 'latest') {
+    const tabKey = targetTab || state.activeTab || 'latest';
+    state.activeTab = tabKey;
+
+    if (DOM.comicGrid && DOM.comicGrid.children.length > 0 && (state.renderedTab === tabKey || tabKey === 'latest')) {
+      switchView('catalog');
+      updateTabButtonsUI(tabKey);
+      if (DOM.serverSwitcherBar) {
+        DOM.serverSwitcherBar.hidden = (tabKey !== 'latest');
+      }
+      setRoute(tabKey);
+      window.scrollTo(0, state.lastScrollY || 0);
+      return;
+    }
+
+    switchTab(tabKey, true);
+  }
+
+  // Tab Navigation
+  function switchTab(tabKey, updateHash = true) {
+    state.activeTab = tabKey;
+    state.catalogPage = 1;
+    state.lastScrollY = 0;
+    if (DOM.searchInput) DOM.searchInput.value = '';
+    if (DOM.searchClearBtn) DOM.searchClearBtn.hidden = true;
+
+    updateTabButtonsUI(tabKey);
+
     if (DOM.serverSwitcherBar) {
       DOM.serverSwitcherBar.hidden = (tabKey !== 'latest');
     }
 
     if (tabKey === 'latest') {
-      if (DOM.tabLatest) DOM.tabLatest.classList.add('active');
-      if (DOM.mobileTabLatest) DOM.mobileTabLatest.classList.add('active');
-      DOM.catalogTitle.textContent = 'Komik Terbaru';
       loadLatestComics(1);
     } else if (tabKey === 'favorites') {
-      if (DOM.tabFavorites) DOM.tabFavorites.classList.add('active');
-      if (DOM.mobileTabFavorites) DOM.mobileTabFavorites.classList.add('active');
-      DOM.catalogTitle.textContent = 'Komik Favorit';
       loadFavorites();
     } else if (tabKey === 'history') {
-      if (DOM.tabHistory) DOM.tabHistory.classList.add('active');
-      if (DOM.mobileTabHistory) DOM.mobileTabHistory.classList.add('active');
-      DOM.catalogTitle.textContent = 'Riwayat Baca';
       loadHistory();
     }
     switchView('catalog');
@@ -355,10 +385,7 @@ import { createReaderController } from './reader.js';
 
   // Load Latest Comics
   async function loadLatestComics(page = 1) {
-    DOM.comicGrid.innerHTML = '';
-    DOM.paginationControls.hidden = true;
     if (DOM.serverSwitcherBar) DOM.serverSwitcherBar.hidden = false;
-    if (DOM.catalogCount) DOM.catalogCount.textContent = '';
     showLoading(true);
 
     try {
@@ -369,6 +396,8 @@ import { createReaderController } from './reader.js';
       const items = Array.isArray(result) ? result : (result.data || []);
 
       if (!items || items.length === 0) {
+        DOM.comicGrid.innerHTML = '';
+        if (DOM.paginationControls) DOM.paginationControls.hidden = true;
         showEmpty('Tidak Ada Komik', 'Belum ada komik terbaru dari server ini.', 'Muat Ulang', () => loadLatestComics(1));
         return;
       }
@@ -377,10 +406,17 @@ import { createReaderController } from './reader.js';
       state.catalogHasNext = (result && result.meta && result.meta.has_next != null)
         ? Boolean(result.meta.has_next)
         : items.length >= (state.activeServer === 'komiku' ? 10 : 20);
-      DOM.catalogCount.textContent = `(${items.length} judul)`;
+      if (DOM.catalogCount) {
+        DOM.catalogCount.textContent = `(${items.length} judul)`;
+      }
 
+      DOM.comicGrid.innerHTML = '';
       renderComicGrid(items);
       setupPagination();
+      state.renderedTab = 'latest';
+      if (page > 1) {
+        window.scrollTo({ top: 0, behavior: 'instant' });
+      }
     } catch (err) {
       showLoading(false);
       showError(`Gagal memuat komik terbaru: ${err.message}`, () => loadLatestComics(page));
@@ -389,9 +425,6 @@ import { createReaderController } from './reader.js';
 
   // Load Watchlist
   async function loadFavorites() {
-    DOM.comicGrid.innerHTML = '';
-    DOM.paginationControls.hidden = true;
-    if (DOM.catalogCount) DOM.catalogCount.textContent = '';
     showLoading(true);
 
     try {
@@ -402,11 +435,15 @@ import { createReaderController } from './reader.js';
       state.favoritesList = items || [];
 
       if (!items || items.length === 0) {
+        DOM.comicGrid.innerHTML = '';
+        if (DOM.paginationControls) DOM.paginationControls.hidden = true;
         showEmpty('Belum Ada Favorit', 'Tandai komik favorit Anda untuk menerima pembaruan otomatis.', 'Jelajahi Terbaru', () => switchTab('latest'));
         return;
       }
 
-      DOM.catalogCount.textContent = `(${items.length} judul tersimpan)`;
+      if (DOM.paginationControls) DOM.paginationControls.hidden = true;
+      if (DOM.catalogCount) DOM.catalogCount.textContent = `(${items.length} judul tersimpan)`;
+      DOM.comicGrid.innerHTML = '';
       renderComicGrid(items.map(item => ({
         manga_id: item.manga_id,
         title: item.manga_title,
@@ -415,6 +452,7 @@ import { createReaderController } from './reader.js';
         user_rate: null,
         has_new_update: item.has_new_update
       })));
+      state.renderedTab = 'favorites';
     } catch (err) {
       showLoading(false);
       showError(`Gagal memuat favorit: ${err.message}`, () => loadFavorites());
@@ -423,9 +461,6 @@ import { createReaderController } from './reader.js';
 
   // Load History
   async function loadHistory() {
-    DOM.comicGrid.innerHTML = '';
-    DOM.paginationControls.hidden = true;
-    if (DOM.catalogCount) DOM.catalogCount.textContent = '';
     showLoading(true);
 
     try {
@@ -436,11 +471,15 @@ import { createReaderController } from './reader.js';
       state.historyList = items || [];
 
       if (!items || items.length === 0) {
+        DOM.comicGrid.innerHTML = '';
+        if (DOM.paginationControls) DOM.paginationControls.hidden = true;
         showEmpty('Belum Ada Riwayat', 'Komik yang Anda baca akan otomatis tercatat di sini.', 'Mulai Membaca', () => switchTab('latest'));
         return;
       }
 
-      DOM.catalogCount.textContent = `(${items.length} judul terakhir dibaca)`;
+      if (DOM.paginationControls) DOM.paginationControls.hidden = true;
+      if (DOM.catalogCount) DOM.catalogCount.textContent = `(${items.length} judul terakhir dibaca)`;
+      DOM.comicGrid.innerHTML = '';
       renderComicGrid(items.map(item => ({
         manga_id: item.manga_id,
         title: item.manga_title,
@@ -450,6 +489,7 @@ import { createReaderController } from './reader.js';
         read_mode: item.read_mode,
         user_rate: null
       })));
+      state.renderedTab = 'history';
     } catch (err) {
       showLoading(false);
       showError(`Gagal memuat riwayat: ${err.message}`, () => loadHistory());
@@ -567,13 +607,11 @@ import { createReaderController } from './reader.js';
     DOM.prevPageBtn.onclick = () => {
       if (state.catalogPage > 1) {
         loadLatestComics(state.catalogPage - 1);
-        window.scrollTo(0, 0);
       }
     };
     DOM.nextPageBtn.onclick = () => {
       if (state.catalogHasNext) {
         loadLatestComics(state.catalogPage + 1);
-        window.scrollTo(0, 0);
       }
     };
   }
@@ -922,6 +960,8 @@ import { createReaderController } from './reader.js';
     closeAutoScrollModal();
     switchView('reader');
     showLoading(true);
+    if (DOM.readerView) DOM.readerView.scrollTop = 0;
+    window.scrollTo(0, 0);
 
     if (state.activeManga && (state.activeManga.manga_id === mangaId || state.activeManga.slug === mangaId)) {
       DOM.readerMangaTitle.textContent = state.activeManga.title || 'Komik';
@@ -1188,6 +1228,7 @@ import { createReaderController } from './reader.js';
       }
 
       DOM.webtoonContainer.appendChild(endCard);
+      readerController.preloadNearbyImages(state.activeChapterPages, 0);
 
       const savedProgress = getLocalProgress(state.activeMangaId, state.activeChapterId);
       if (savedProgress && (Number(savedProgress.scrollTop) > 50 || Number(savedProgress.imageIndex) > 0)) {
@@ -1205,7 +1246,7 @@ import { createReaderController } from './reader.js';
 
       const savedProgress = getLocalProgress(state.activeMangaId, state.activeChapterId);
       if (savedProgress && Number(savedProgress.pageIndex) > 0) {
-        state.currentPageIndex = Math.min(Number(savedProgress.pageIndex), (pages || []).length - 1);
+        state.currentPageIndex = Math.min(Number(savedProgress.pageIndex), (state.activeChapterPages || []).length - 1);
       }
       readerController.updateMangaSlide();
     }
@@ -1549,23 +1590,20 @@ import { createReaderController } from './reader.js';
         setRoute(`manga/${encodeURIComponent(slug)}`);
         openMangaDetail(state.activeMangaId || slug, false);
       } else {
-        setRoute('latest');
-        switchTab('latest', false);
+        returnToCatalog('latest');
       }
     };
   }
 
   if (DOM.readerHomeBtn) {
     DOM.readerHomeBtn.onclick = () => {
-      setRoute('latest');
-      switchTab('latest', false);
+      returnToCatalog('latest');
     };
   }
 
   if (DOM.readerDockHomeBtn) {
     DOM.readerDockHomeBtn.onclick = () => {
-      setRoute('latest');
-      switchTab('latest', false);
+      returnToCatalog('latest');
     };
   }
 
@@ -1602,16 +1640,13 @@ import { createReaderController } from './reader.js';
 
   if (DOM.detailBackBtn) {
     DOM.detailBackBtn.onclick = () => {
-      const targetTab = state.activeTab || 'latest';
-      setRoute(targetTab);
-      switchTab(targetTab, false);
+      returnToCatalog(state.activeTab || 'latest');
     };
   }
 
   if (DOM.brandLogo) {
     DOM.brandLogo.onclick = () => {
-      setRoute('latest');
-      switchTab('latest', false);
+      returnToCatalog('latest');
     };
     DOM.brandLogo.onkeydown = (e) => {
       if (e.key === 'Enter' || e.key === ' ') {
@@ -1659,16 +1694,12 @@ import { createReaderController } from './reader.js';
   async function performSearch(query) {
     const trimmed = query.trim();
     if (!trimmed) {
-      switchTab(state.activeTab);
+      returnToCatalog(state.activeTab || 'latest');
       return;
     }
 
-    DOM.comicGrid.innerHTML = '';
-    DOM.paginationControls.hidden = true;
-    if (DOM.catalogCount) DOM.catalogCount.textContent = '';
-    DOM.catalogTitle.textContent = `Hasil Pencarian: "${trimmed}"`;
-
     if (DOM.serverSwitcherBar) DOM.serverSwitcherBar.hidden = false;
+    DOM.catalogTitle.textContent = `Hasil Pencarian: "${trimmed}"`;
     showLoading(true);
 
     try {
@@ -1678,14 +1709,18 @@ import { createReaderController } from './reader.js';
       hideEmpty();
 
       const items = Array.isArray(results) ? results : (results.data || []);
-      DOM.catalogCount.textContent = `(${items.length} ditemukan)`;
+      if (DOM.paginationControls) DOM.paginationControls.hidden = true;
+      if (DOM.catalogCount) DOM.catalogCount.textContent = `(${items.length} ditemukan)`;
 
       if (items.length === 0) {
-        showEmpty('Tidak Ditemukan', `Tidak ada komik yang cocok dengan "${trimmed}".`, 'Lihat Terbaru', () => switchTab('latest'));
+        DOM.comicGrid.innerHTML = '';
+        showEmpty('Tidak Ditemukan', `Tidak ada komik yang cocok dengan "${trimmed}".`, 'Lihat Terbaru', () => returnToCatalog('latest'));
         return;
       }
 
+      DOM.comicGrid.innerHTML = '';
       renderComicGrid(items);
+      state.renderedTab = 'search';
     } catch (err) {
       showLoading(false);
       showError(`Gagal mencari komik: ${err.message}`, () => performSearch(trimmed));

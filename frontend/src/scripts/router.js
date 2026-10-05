@@ -3,6 +3,9 @@
  * Rule R-02 Compliance: Zero em dashes or en dashes allowed.
  */
 
+let isHandlingRoute = false;
+let suppressHashChange = false;
+
 export function setRoute(routeStr) {
   const hash = `#/${routeStr}`;
   try {
@@ -12,13 +15,16 @@ export function setRoute(routeStr) {
     // Ignore storage errors in restricted contexts
   }
   if (window.location.hash !== hash) {
+    suppressHashChange = true;
     window.location.hash = hash;
   }
 }
 
-let isHandlingRoute = false;
-
 export async function handleRoute({ onReader, onManga, onTab }) {
+  if (suppressHashChange) {
+    suppressHashChange = false;
+    return;
+  }
   if (isHandlingRoute) return;
   isHandlingRoute = true;
   try {
