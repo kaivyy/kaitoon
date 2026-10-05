@@ -82,6 +82,28 @@ def test_api_manga_detail(client):
         assert data["title"] == "Manga One"
         assert len(data.get("chapters", [])) == 1
 
+def test_api_manga_detail_all_chapters_pagination(client):
+    mock_detail = {"data": {"manga_id": "m2", "title": "Manga Two"}}
+    page1 = {
+        "data": [{"chapter_id": f"c{i}", "chapter_number": float(i)} for i in range(100, 50, -1)],
+        "meta": {"page": 1, "page_size": 50, "total_page": 2, "total_record": 100}
+    }
+    page2 = {
+        "data": [{"chapter_id": f"c{i}", "chapter_number": float(i)} for i in range(50, 0, -1)],
+        "meta": {"page": 2, "page_size": 50, "total_page": 2, "total_record": 100}
+    }
+    def mock_list_chapters(manga_id, page=1, **kwargs):
+        return page1 if page == 1 else page2
+
+    with patch("kaitoon.server.client.get_manga_detail", return_value=mock_detail), \
+         patch("kaitoon.server.client.list_chapters", side_effect=mock_list_chapters):
+        res = client.get("/api/manga/m2")
+        assert res.status_code == 200
+        chapters = res.json()["data"]["chapters"]
+        assert len(chapters) == 100
+        assert chapters[0]["chapter_number"] == 100.0
+        assert chapters[-1]["chapter_number"] == 1.0
+
 def test_api_chapter_pages(client):
     mock_urls = ["http://img1.jpg", "http://img2.jpg"]
     with patch("kaitoon.server.client.get_chapter_image_urls", return_value=mock_urls):

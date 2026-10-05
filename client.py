@@ -97,6 +97,50 @@ class ShinigamiClient:
         }
         return self._get(f"chapter/{manga_id}/list", params)
 
+    def get_all_chapters(self, manga_id: str, sort_by: str = "chapter_number", 
+                         sort_order: str = "desc") -> Dict[str, Any]:
+        """
+        Mengambil semua chapter komik di semua halaman (pagination loop).
+        Menggunakan batch page_size=1000 untuk efisiensi request.
+        """
+        all_chapters = []
+        page = 1
+        page_size = 1000
+        first_meta = {}
+
+        while True:
+            res = self.list_chapters(
+                manga_id, page=page, page_size=page_size, 
+                sort_by=sort_by, sort_order=sort_order
+            )
+            if not isinstance(res, dict):
+                break
+            chapters = res.get("data", [])
+            if not isinstance(chapters, list):
+                chapters = []
+            if not first_meta:
+                meta = res.get("meta")
+                first_meta = meta.copy() if isinstance(meta, dict) else {}
+
+            all_chapters.extend(chapters)
+
+            meta = res.get("meta") or {}
+            total_page = meta.get("total_page", 1) if isinstance(meta, dict) else 1
+            if page >= total_page or not chapters or page >= 50:
+                break
+            page += 1
+
+        first_meta["page"] = 1
+        first_meta["page_size"] = len(all_chapters)
+        first_meta["total_page"] = 1
+        first_meta["total_record"] = len(all_chapters)
+
+        return {
+            "ret": 200,
+            "data": all_chapters,
+            "meta": first_meta
+        }
+
     def get_chapter_detail(self, chapter_id: str) -> Dict[str, Any]:
         """Mengambil detail chapter beserta path dan list nama file gambar."""
         return self._get(f"chapter/detail/{chapter_id}")

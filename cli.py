@@ -76,7 +76,7 @@ def cmd_download(client: ShinigamiClient, args):
 
 def cmd_export(client: ShinigamiClient, args):
     manga = client.get_manga_detail(args.manga_id).get("data", {})
-    chapters = client.list_chapters(args.manga_id, page=1, page_size=500).get("data", [])
+    chapters = client.get_all_chapters(args.manga_id).get("data", [])
     
     data = {
         "metadata": manga,

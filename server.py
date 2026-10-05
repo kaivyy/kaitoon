@@ -225,17 +225,21 @@ def search_manga_endpoint(
 @app.get("/api/manga/{id}")
 def get_manga_endpoint(
     id: str,
-    page: int = Query(1, ge=1),
-    page_size: int = Query(100, ge=1, le=500),
+    page: Optional[int] = Query(None, ge=1),
+    page_size: Optional[int] = Query(None, ge=1, le=1000),
     sort_order: str = "desc",
+    all_chapters: bool = Query(True, description="Whether to fetch all chapters across pages"),
 ):
     """Retrieves full manga details along with chapter listings."""
     try:
         detail = client.get_manga_detail(id)
         try:
-            chapters = client.list_chapters(
-                id, page=page, page_size=page_size, sort_order=sort_order
-            )
+            if all_chapters and page is None and hasattr(client, "get_all_chapters"):
+                chapters = client.get_all_chapters(id, sort_order=sort_order)
+            else:
+                chapters = client.list_chapters(
+                    id, page=page or 1, page_size=page_size or 100, sort_order=sort_order
+                )
             if isinstance(detail, dict) and "data" in detail and isinstance(detail["data"], dict):
                 detail["data"]["chapters"] = chapters.get("data", [])
                 detail["data"]["chapters_meta"] = chapters.get("meta", {})
