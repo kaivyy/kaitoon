@@ -443,12 +443,24 @@ def test_antislop_delivery_gate_r21_r25_pure_black_and_contrast():
 
 
 def test_antislop_delivery_gate_r26_all_buttons_functional():
-    """R-26: Verifies all interactive buttons in index.html are bound to listeners in app.js."""
+    """R-26: Verifies all interactive buttons in index.html are bound to listeners in app.js or bundle."""
     with open(os.path.join(STATIC_DIR, "index.html"), "r", encoding="utf-8") as f:
         html = f.read()
 
-    with open(os.path.join(STATIC_DIR, "app.js"), "r", encoding="utf-8") as f:
-        js = f.read()
+    js_parts = []
+    app_js = os.path.join(STATIC_DIR, "app.js")
+    if os.path.exists(app_js):
+        with open(app_js, "r", encoding="utf-8") as f:
+            js_parts.append(f.read())
+
+    astro_dir = os.path.join(STATIC_DIR, "_astro")
+    if os.path.isdir(astro_dir):
+        for fname in os.listdir(astro_dir):
+            if fname.endswith(".js"):
+                with open(os.path.join(astro_dir, fname), "r", encoding="utf-8") as f:
+                    js_parts.append(f.read())
+
+    js = "\n".join(js_parts)
 
     button_ids = re.findall(r'<button[^>]+id="([^"]+)"', html)
     assert len(button_ids) > 0

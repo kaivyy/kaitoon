@@ -673,6 +673,118 @@ button:active {
   letter-spacing: 0.02em;
 }
 
+/* Server Switcher Bar (Placed at the very bottom) */
+.server-switcher-bar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 36px;
+  margin-bottom: 24px;
+  padding: 16px 20px;
+  background-color: #0a0a0a;
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  max-width: 520px;
+  margin-left: auto;
+  margin-right: auto;
+  text-align: center;
+}
+
+.server-switcher-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.server-switcher-label .server-icon {
+  width: 16px;
+  height: 16px;
+  stroke: var(--accent-emerald);
+}
+
+.server-btn-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background-color: #000000;
+  padding: 4px;
+  border-radius: 9999px;
+  border: 1px solid var(--border-subtle);
+}
+
+.server-pill-btn {
+  min-height: 44px;
+  padding: 8px 18px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: 9999px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.server-pill-btn:hover:not(.active) {
+  color: var(--text-primary);
+  background-color: #141414;
+}
+
+.server-pill-btn.active {
+  background-color: #111e18;
+  border-color: var(--accent-emerald);
+  color: #10b981;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.2);
+}
+
+.server-indicator-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #374151;
+  transition: all 0.2s ease;
+}
+
+.server-pill-btn.active .server-indicator-dot {
+  background-color: #10b981;
+  box-shadow: 0 0 6px #10b981;
+}
+
+.server-pill-text {
+  line-height: 1;
+}
+
+@media (max-width: 640px) {
+  .server-switcher-bar {
+    margin-bottom: 84px;
+    padding: 14px 16px;
+    width: calc(100% - 24px);
+  }
+
+  .server-btn-group {
+    width: 100%;
+    display: flex;
+  }
+
+  .server-pill-btn {
+    flex: 1;
+    justify-content: center;
+    padding: 10px 10px;
+    font-size: 0.78rem;
+  }
+}
+
 /* Detail View */
 .detail-nav-bar {
   margin-bottom: 20px;

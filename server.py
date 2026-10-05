@@ -30,6 +30,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from kaitoon.client import ShinigamiClient
+from kaitoon.providers.komiku import KomikuClient
 from kaitoon.db import (
     DEFAULT_DB_PATH,
     init_db,
@@ -53,6 +54,7 @@ DOWNLOADS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "downlo
 os.makedirs(DOWNLOADS_DIR, exist_ok=True)
 
 client = ShinigamiClient(web_url="https://11.shinigami.asia")
+komiku_client = KomikuClient(db_path=DEFAULT_DB_PATH)
 
 
 class HistoryPayload(BaseModel):
@@ -76,6 +78,7 @@ class DownloadRequestPayload(BaseModel):
     manga_title: Optional[str] = "Manga"
     chapter_number: Optional[float] = None
     total_pages: Optional[int] = 0
+    server: Optional[str] = "shinigami"
 
 
 def check_watchlist_updates(
@@ -125,16 +128,32 @@ async def auto_sync_watchlist_task(interval_seconds: int = 1800) -> None:
         logger.info("Watchlist auto-sync background worker stopped.")
 
 
+async def auto_sync_komiku_task(interval_seconds: int = 1800) -> None:
+    """Background loop that periodically crawls Komiku latest releases."""
+    try:
+        while True:
+            try:
+                await asyncio.to_thread(komiku_client.list_latest, page=1)
+                logger.info("Komiku latest catalog crawled and cached successfully.")
+            except Exception as err:
+                logger.error(f"Komiku auto-sync cycle failed: {err}")
+            await asyncio.sleep(interval_seconds)
+    except asyncio.CancelledError:
+        logger.info("Komiku auto-sync background worker stopped.")
+
+
 def run_chapter_download(
     chapter_id: str,
     manga_title: str,
     db_path: str,
+    server: str = "shinigami",
 ) -> None:
     """Worker function to process chapter image downloading and CBZ archiving."""
     try:
         update_download_status(chapter_id, "downloading", db_path=db_path)
+        active_client = komiku_client if (server == "komiku" or not is_uuid_string(chapter_id)) else client
         cbz_path = package_chapter_cbz(
-            client=client,
+            client=active_client,
             chapter_id=chapter_id,
             manga_title=manga_title,
             output_dir=DOWNLOADS_DIR,
@@ -150,10 +169,16 @@ async def lifespan(app_instance: FastAPI):
     """Lifespan manager for database bootstrap and background worker lifecycle."""
     init_db(DEFAULT_DB_PATH)
     worker_task = asyncio.create_task(auto_sync_watchlist_task())
+    komiku_task = asyncio.create_task(auto_sync_komiku_task())
     yield
     worker_task.cancel()
+    komiku_task.cancel()
     try:
         await worker_task
+    except asyncio.CancelledError:
+        pass
+    try:
+        await komiku_task
     except asyncio.CancelledError:
         pass
 
@@ -277,8 +302,16 @@ def get_latest_manga(
     page_size: int = Query(20, ge=1, le=100),
     sort: str = "latest",
     sort_order: str = "desc",
+    server: str = Query("shinigami", description="Server provider: shinigami or komiku"),
 ):
-    """Retrieves list of latest updated manga from Shinigami API."""
+    """Retrieves list of latest updated manga from Shinigami or Komiku."""
+    if server.lower() == "komiku":
+        try:
+            return komiku_client.list_latest(page=page, page_size=page_size)
+        except Exception as err:
+            logger.error(f"Failed to fetch latest manga from Komiku: {err}")
+            raise HTTPException(status_code=500, detail=str(err))
+
     try:
         res = client.list_manga(page=page, page_size=page_size, sort=sort, sort_order=sort_order)
         if isinstance(res, dict) and "data" in res and isinstance(res["data"], list):
@@ -299,10 +332,19 @@ def search_manga_endpoint(
     q: str = Query("", description="Search keywords"),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
+    server: str = Query("shinigami", description="Server provider: shinigami or komiku"),
 ):
     """Searches manga titles with keyword query."""
     if not q.strip():
         return {"data": [], "meta": {"page": page, "page_size": page_size, "total": 0}}
+
+    if server.lower() == "komiku":
+        try:
+            return komiku_client.search_manga(query=q.strip(), page=page, page_size=page_size)
+        except Exception as err:
+            logger.error(f"Search request failed on Komiku: {err}")
+            raise HTTPException(status_code=500, detail=str(err))
+
     try:
         res = client.search_manga(query=q.strip(), page=page, page_size=page_size)
         if isinstance(res, dict) and "data" in res and isinstance(res["data"], list):
@@ -325,8 +367,18 @@ def get_manga_endpoint(
     page_size: Optional[int] = Query(None, ge=1, le=1000),
     sort_order: str = "desc",
     all_chapters: bool = Query(True, description="Whether to fetch all chapters across pages"),
+    server: Optional[str] = Query(None, description="Server provider: shinigami or komiku"),
 ):
     """Retrieves full manga details along with chapter listings."""
+    is_komiku = (server and server.lower() == "komiku") or (not is_uuid_string(id) and komiku_client._get_cached_manga_detail(id))
+    if is_komiku:
+        try:
+            return komiku_client.get_manga_detail(id)
+        except Exception as k_err:
+            logger.warning(f"Komiku detail fetch failed for {id}: {k_err}")
+            if server and server.lower() == "komiku":
+                raise HTTPException(status_code=500, detail=str(k_err))
+
     try:
         real_id = resolve_manga_identifier(id)
         detail = client.get_manga_detail(real_id)
@@ -349,13 +401,37 @@ def get_manga_endpoint(
             logger.warning(f"Failed to fetch chapters for manga {real_id}: {ch_err}")
         return detail
     except Exception as err:
+        if not is_uuid_string(id):
+            try:
+                return komiku_client.get_manga_detail(id)
+            except Exception:
+                pass
         logger.error(f"Failed to fetch manga detail for {id}: {err}")
         raise HTTPException(status_code=500, detail=str(err))
 
 
 @app.get("/api/chapter/{id}/pages")
-def get_chapter_pages_endpoint(id: str):
+def get_chapter_pages_endpoint(
+    id: str,
+    server: Optional[str] = Query(None, description="Server provider: shinigami or komiku"),
+):
     """Retrieves direct CDN image URLs for all pages in a chapter."""
+    is_komiku = (server and server.lower() == "komiku") or not is_uuid_string(id)
+    if is_komiku:
+        try:
+            urls = komiku_client.get_chapter_image_urls(id)
+            return {
+                "chapter_id": id,
+                "pages": urls,
+                "data": urls,
+                "total": len(urls),
+                "server": "komiku",
+            }
+        except Exception as k_err:
+            logger.warning(f"Komiku chapter pages failed for {id}: {k_err}")
+            if server and server.lower() == "komiku":
+                raise HTTPException(status_code=500, detail=str(k_err))
+
     try:
         urls = client.get_chapter_image_urls(id)
         return {
@@ -363,6 +439,7 @@ def get_chapter_pages_endpoint(id: str):
             "pages": urls,
             "data": urls,
             "total": len(urls),
+            "server": "shinigami",
         }
     except Exception as err:
         logger.error(f"Failed to fetch chapter pages for {id}: {err}")
@@ -414,17 +491,20 @@ def download_chapter_endpoint(
     id: str,
     background_tasks: BackgroundTasks,
     payload: Optional[DownloadRequestPayload] = None,
+    server: Optional[str] = Query(None, description="Server provider: shinigami or komiku"),
 ):
     """Enqueues a chapter download task to run in the background."""
     req = payload or DownloadRequestPayload()
+    chosen_server = server or req.server or ("komiku" if not is_uuid_string(id) else "shinigami")
     m_id = req.manga_id or "unknown"
     title = req.manga_title or "Manga"
     ch_num = req.chapter_number or 0.0
     pages = req.total_pages or 0
 
+    active_c = komiku_client if chosen_server == "komiku" else client
     if not req.manga_id or req.chapter_number is None or pages == 0:
         try:
-            ch_detail = client.get_chapter_detail(id)
+            ch_detail = active_c.get_chapter_detail(id)
             ch_data = ch_detail.get("data", {}) if isinstance(ch_detail, dict) else {}
             if not req.manga_id:
                 m_id = ch_data.get("manga_id", m_id)
@@ -432,6 +512,8 @@ def download_chapter_endpoint(
                 ch_num = float(ch_data.get("chapter_number", ch_num))
             if pages == 0:
                 pages = len(ch_data.get("chapter", {}).get("data", []))
+                if pages == 0:
+                    pages = len(active_c.get_chapter_image_urls(id))
         except Exception as err:
             logger.warning(f"Could not retrieve chapter metadata for {id}: {err}")
 
@@ -444,7 +526,7 @@ def download_chapter_endpoint(
         db_path=DEFAULT_DB_PATH,
     )
 
-    background_tasks.add_task(run_chapter_download, id, title, DEFAULT_DB_PATH)
+    background_tasks.add_task(run_chapter_download, id, title, DEFAULT_DB_PATH, chosen_server)
 
     return {
         "status": "pending",

@@ -229,3 +229,73 @@ async def test_auto_sync_watchlist_task_cycle(tmp_path):
     assert mock_client.list_manga.called
 
 
+def test_api_latest_komiku_server(client):
+    mock_komiku = {
+        "data": [{"manga_id": "komiku-1", "title": "Komiku Comic 1", "server": "komiku"}],
+        "meta": {"page": 1, "page_size": 1, "server": "komiku"}
+    }
+    with patch("kaitoon.server.komiku_client.list_latest", return_value=mock_komiku):
+        res = client.get("/api/latest?page=1&server=komiku")
+        assert res.status_code == 200
+        assert res.json()["meta"]["server"] == "komiku"
+        assert res.json()["data"][0]["title"] == "Komiku Comic 1"
+
+
+def test_api_search_komiku_server(client):
+    mock_search = {
+        "data": [{"manga_id": "komiku-s", "title": "Search Result", "server": "komiku"}],
+        "meta": {"page": 1, "page_size": 1, "server": "komiku"}
+    }
+    with patch("kaitoon.server.komiku_client.search_manga", return_value=mock_search):
+        res = client.get("/api/search?q=piece&server=komiku")
+        assert res.status_code == 200
+        assert res.json()["meta"]["server"] == "komiku"
+        assert res.json()["data"][0]["manga_id"] == "komiku-s"
+
+
+def test_api_manga_detail_komiku_server(client):
+    mock_detail = {
+        "data": {
+            "manga_id": "one-piece",
+            "title": "One Piece",
+            "chapters": [{"chapter_id": "ch-1", "chapter_number": 1.0}],
+            "server": "komiku"
+        }
+    }
+    with patch("kaitoon.server.komiku_client.get_manga_detail", return_value=mock_detail):
+        res = client.get("/api/manga/one-piece?server=komiku")
+        assert res.status_code == 200
+        assert res.json()["data"]["server"] == "komiku"
+        assert res.json()["data"]["title"] == "One Piece"
+
+
+def test_api_chapter_pages_komiku_server(client):
+    mock_pages = ["https://image1.komiku.to/01.webp", "https://image1.komiku.to/02.webp"]
+    with patch("kaitoon.server.komiku_client.get_chapter_image_urls", return_value=mock_pages):
+        res = client.get("/api/chapter/ch-one-piece-1100-bahasa-indonesia/pages")
+        assert res.status_code == 200
+        assert res.json()["server"] == "komiku"
+        assert len(res.json()["pages"]) == 2
+
+
+@pytest.mark.anyio
+async def test_auto_sync_komiku_task_cycle():
+    import asyncio
+    from kaitoon.server import auto_sync_komiku_task
+
+    mock_kclient = MagicMock()
+    mock_kclient.list_latest.return_value = {"data": []}
+
+    with patch("kaitoon.server.komiku_client", mock_kclient):
+        task = asyncio.create_task(auto_sync_komiku_task(interval_seconds=0))
+        await asyncio.sleep(0.02)
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
+    assert mock_kclient.list_latest.called
+
+
+

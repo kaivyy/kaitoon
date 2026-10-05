@@ -33,7 +33,8 @@ import { createReaderController } from './reader.js';
     lastScrollY: 0,
     activeDownloadPolls: new Set(),
     isAutoScrolling: false,
-    autoScrollSpeed: parseFloat(localStorage.getItem('autoScrollSpeed')) || 1.0
+    autoScrollSpeed: parseFloat(localStorage.getItem('autoScrollSpeed')) || 1.0,
+    activeServer: localStorage.getItem('kaitoon_server') || 'shinigami'
   };
 
   // DOM Elements Cache
@@ -69,6 +70,9 @@ import { createReaderController } from './reader.js';
     prevPageBtn: document.getElementById('prev-page-btn'),
     nextPageBtn: document.getElementById('next-page-btn'),
     pageNumDisplay: document.getElementById('page-num-display'),
+    serverSwitcherBar: document.getElementById('server-switcher-bar'),
+    serverBtnShinigami: document.getElementById('server-btn-shinigami'),
+    serverBtnKomiku: document.getElementById('server-btn-komiku'),
 
     detailView: document.getElementById('detail-view'),
     detailBackBtn: document.getElementById('detail-back-btn'),
@@ -284,6 +288,10 @@ import { createReaderController } from './reader.js';
       if (btn) btn.classList.remove('active');
     });
 
+    if (DOM.serverSwitcherBar) {
+      DOM.serverSwitcherBar.hidden = (tabKey !== 'latest');
+    }
+
     if (tabKey === 'latest') {
       if (DOM.tabLatest) DOM.tabLatest.classList.add('active');
       if (DOM.mobileTabLatest) DOM.mobileTabLatest.classList.add('active');
@@ -306,20 +314,47 @@ import { createReaderController } from './reader.js';
     }
   }
 
+  // Server Switcher Controls
+  function updateServerSwitcherUI() {
+    if (!DOM.serverBtnShinigami || !DOM.serverBtnKomiku) return;
+    const isKomiku = state.activeServer === 'komiku';
+    DOM.serverBtnShinigami.classList.toggle('active', !isKomiku);
+    DOM.serverBtnShinigami.setAttribute('aria-checked', (!isKomiku).toString());
+    DOM.serverBtnKomiku.classList.toggle('active', isKomiku);
+    DOM.serverBtnKomiku.setAttribute('aria-checked', isKomiku.toString());
+  }
+
+  function switchServer(newServer) {
+    if (state.activeServer === newServer) return;
+    state.activeServer = newServer;
+    localStorage.setItem('kaitoon_server', newServer);
+    updateServerSwitcherUI();
+    showToast(newServer === 'komiku' ? 'Server beralih ke Server 2 (Komiku)' : 'Server beralih ke Server 1 (Shinigami)');
+    state.catalogPage = 1;
+    if (state.currentView === 'catalog') {
+      if (DOM.searchInput && DOM.searchInput.value.trim()) {
+        performSearch(DOM.searchInput.value.trim());
+      } else {
+        loadLatestComics(1);
+      }
+    }
+  }
+
   // Load Latest Comics
   async function loadLatestComics(page = 1) {
     DOM.comicGrid.innerHTML = '';
     DOM.paginationControls.hidden = true;
+    if (DOM.serverSwitcherBar) DOM.serverSwitcherBar.hidden = false;
     if (DOM.catalogCount) DOM.catalogCount.textContent = '';
 
     try {
-      const result = await apiFetch(`/api/latest?page=${page}&page_size=24`);
+      const result = await apiFetch(`/api/latest?page=${page}&page_size=24&server=${state.activeServer}`);
       hideError();
       hideEmpty();
       const items = Array.isArray(result) ? result : (result.data || []);
 
       if (!items || items.length === 0) {
-        showEmpty('Tidak Ada Komik', 'Belum ada komik terbaru dari server.', 'Muat Ulang', () => loadLatestComics(1));
+        showEmpty('Tidak Ada Komik', 'Belum ada komik terbaru dari server ini.', 'Muat Ulang', () => loadLatestComics(1));
         return;
       }
 
@@ -419,6 +454,15 @@ import { createReaderController } from './reader.js';
         ch2Num = String(Number(ch1Num) - 1);
       }
 
+      let timeText = 'Terbaru';
+      if (item.release_time) {
+        timeText = item.release_time;
+      } else if (item.latest_chapter_date) {
+        timeText = formatRelativeTime(item.latest_chapter_date) || 'Terbaru';
+      } else if (item.updated_at) {
+        timeText = formatRelativeTime(item.updated_at) || 'Terbaru';
+      }
+
       card.innerHTML = `
         <div class="card-thumb card-poster-wrap">
           <img class="card-poster" src="${escapeHtml(coverUrl)}" alt="Sampul ${escapeHtml(title)}" loading="lazy" referrerpolicy="no-referrer">
@@ -433,7 +477,7 @@ import { createReaderController } from './reader.js';
           <div class="card-chapter-row">
             <button type="button" class="card-ch-btn card-ch-btn-1 card-ch-btn-latest" title="Baca Chapter ${ch1Num}">
               <span class="ch-btn-num">Ch. ${ch1Num}</span>
-              <span class="ch-btn-time">Terbaru</span>
+              <span class="ch-btn-time" title="${escapeHtml(timeText)}">${escapeHtml(timeText)}</span>
             </button>
             ${ch2Num ? `
             <button type="button" class="card-ch-btn card-ch-btn-2" title="Baca Chapter ${ch2Num}">
@@ -514,7 +558,7 @@ import { createReaderController } from './reader.js';
   async function openMangaDetail(mangaId, updateHash = true) {
     try {
       const [detailRes, historyItems, watchlistItems] = await Promise.all([
-        apiFetch(`/api/manga/${encodeURIComponent(mangaId)}`),
+        apiFetch(`/api/manga/${encodeURIComponent(mangaId)}?server=${state.activeServer}`),
         apiFetch('/api/history').catch(() => []),
         apiFetch('/api/watchlist').catch(() => [])
       ]);
@@ -715,7 +759,7 @@ import { createReaderController } from './reader.js';
     try {
       let manga = state.activeManga;
       if (!manga || (manga.manga_id !== mangaId && manga.slug !== mangaId) || !manga.chapters) {
-        const res = await apiFetch(`/api/manga/${encodeURIComponent(mangaId)}`);
+        const res = await apiFetch(`/api/manga/${encodeURIComponent(mangaId)}?server=${state.activeServer}`);
         manga = res.data || res;
         state.activeManga = manga;
       }
@@ -852,7 +896,7 @@ import { createReaderController } from './reader.js';
     try {
       let manga = state.activeManga;
       if (!manga || (manga.manga_id !== mangaId && manga.slug !== mangaId) || !manga.chapters) {
-        const mangaRes = await apiFetch(`/api/manga/${encodeURIComponent(mangaId)}`);
+        const mangaRes = await apiFetch(`/api/manga/${encodeURIComponent(mangaId)}?server=${state.activeServer}`);
         manga = mangaRes.data || mangaRes;
         state.activeManga = manga;
       }
@@ -889,7 +933,7 @@ import { createReaderController } from './reader.js';
       state.readMode = (saved && saved.readMode) ? saved.readMode : mode;
       state.currentPageIndex = (saved && saved.pageIndex != null) ? Number(saved.pageIndex) : 0;
 
-      const pagesRes = await apiFetch(`/api/chapter/${realChapterId}/pages`);
+      const pagesRes = await apiFetch(`/api/chapter/${realChapterId}/pages?server=${state.activeServer}`);
       saveReadingProgress(realMangaId, realChapterId, realChapterNumber, state.readMode);
       saveLocalProgress(realMangaId, realChapterId, { readMode: state.readMode });
 
@@ -1578,8 +1622,10 @@ import { createReaderController } from './reader.js';
     if (DOM.catalogCount) DOM.catalogCount.textContent = '';
     DOM.catalogTitle.textContent = `Hasil Pencarian: "${trimmed}"`;
 
+    if (DOM.serverSwitcherBar) DOM.serverSwitcherBar.hidden = false;
+
     try {
-      const results = await apiFetch(`/api/search?q=${encodeURIComponent(trimmed)}`);
+      const results = await apiFetch(`/api/search?q=${encodeURIComponent(trimmed)}&server=${state.activeServer}`);
       hideError();
       hideEmpty();
 
@@ -1758,6 +1804,15 @@ import { createReaderController } from './reader.js';
 
   // Initialize Autoscroll Speed UI
   updateSpeedUI(state.autoScrollSpeed);
+
+  // Initialize Server Switcher UI
+  if (DOM.serverBtnShinigami) {
+    DOM.serverBtnShinigami.onclick = () => switchServer('shinigami');
+  }
+  if (DOM.serverBtnKomiku) {
+    DOM.serverBtnKomiku.onclick = () => switchServer('komiku');
+  }
+  updateServerSwitcherUI();
 
   // Restore active route on load or refresh
   handleRoute({

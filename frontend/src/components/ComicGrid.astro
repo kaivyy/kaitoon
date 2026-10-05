@@ -35,4 +35,43 @@ const { title = "Komik Terbaru", count = "" } = Astro.props;
       </svg>
     </button>
   </div>
+
+  <!-- Server Switcher (Pilihan Server Paling Bawah) -->
+  <div id="server-switcher-bar" class="server-switcher-bar" aria-label="Pilihan Server Sumber Komik">
+    <div class="server-switcher-label">
+      <svg class="server-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
+        <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
+        <line x1="6" y1="6" x2="6.01" y2="6"></line>
+        <line x1="6" y1="18" x2="6.01" y2="18"></line>
+      </svg>
+      <span>Server Sumber:</span>
+    </div>
+    <div class="server-btn-group" role="radiogroup" aria-label="Pilih Server Komik">
+      <button
+        type="button"
+        id="server-btn-shinigami"
+        class="server-pill-btn active"
+        data-server="shinigami"
+        role="radio"
+        aria-checked="true"
+        aria-label="Server 1: Shinigami"
+      >
+        <span class="server-indicator-dot"></span>
+        <span class="server-pill-text">Server 1 (Shinigami)</span>
+      </button>
+      <button
+        type="button"
+        id="server-btn-komiku"
+        class="server-pill-btn"
+        data-server="komiku"
+        role="radio"
+        aria-checked="false"
+        aria-label="Server 2: Komiku.org"
+      >
+        <span class="server-indicator-dot"></span>
+        <span class="server-pill-text">Server 2 (Komiku)</span>
+      </button>
+    </div>
+  </div>
 </section>
