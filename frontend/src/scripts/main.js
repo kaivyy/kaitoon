@@ -235,6 +235,7 @@ import { createReaderController } from './reader.js';
   // View Navigation
   function switchView(viewName) {
     state.currentView = viewName;
+    document.documentElement.classList.remove('route-reader-initial', 'route-detail-initial');
     hideError();
     hideEmpty();
 
@@ -558,6 +559,8 @@ import { createReaderController } from './reader.js';
 
   // Open Detail View
   async function openMangaDetail(mangaId, updateHash = true) {
+    switchView('detail');
+    showLoading(true);
     try {
       const [detailRes, historyItems, watchlistItems] = await Promise.all([
         apiFetch(`/api/manga/${encodeURIComponent(mangaId)}?server=${state.activeServer}`),
@@ -565,6 +568,7 @@ import { createReaderController } from './reader.js';
         apiFetch('/api/watchlist').catch(() => [])
       ]);
 
+      showLoading(false);
       hideError();
       hideEmpty();
       const detail = detailRes.data || detailRes;
@@ -614,6 +618,7 @@ import { createReaderController } from './reader.js';
         setRoute(`manga/${encodeURIComponent(slug)}`);
       }
     } catch (err) {
+      showLoading(false);
       showError(`Gagal memuat detail komik: ${err.message}`, () => openMangaDetail(mangaId, updateHash));
     }
   }
@@ -894,6 +899,26 @@ import { createReaderController } from './reader.js';
   async function openReader(mangaId, chapterId, chapterNumber, mode = 'webtoon', updateHash = true) {
     stopAutoScroll();
     closeAutoScrollModal();
+    switchView('reader');
+
+    if (state.activeManga && (state.activeManga.manga_id === mangaId || state.activeManga.slug === mangaId)) {
+      DOM.readerMangaTitle.textContent = state.activeManga.title || 'Komik';
+    }
+    if (chapterNumber != null) {
+      DOM.readerChapterTitle.textContent = `Chapter ${chapterNumber}`;
+      if (DOM.readerDockChapterText) {
+        DOM.readerDockChapterText.textContent = `Ch. ${chapterNumber}`;
+      }
+    }
+
+    if (DOM.webtoonContainer && (!state.activeChapterPages || state.activeChapterPages.length === 0)) {
+      DOM.webtoonContainer.innerHTML = `
+        <div class="state-container reader-loader-state">
+          <div class="spinner" aria-hidden="true"></div>
+          <p class="state-text">Memuat halaman chapter...</p>
+        </div>
+      `;
+    }
 
     try {
       let manga = state.activeManga;

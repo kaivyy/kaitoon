@@ -255,6 +255,7 @@
   // View Navigation
   function switchView(viewName) {
     state.currentView = viewName;
+    document.documentElement.classList.remove('route-reader-initial', 'route-detail-initial');
     hideError();
     hideEmpty();
 
@@ -878,6 +879,7 @@
 
   // Open Detail View
   async function openMangaDetail(mangaId, updateHash = true) {
+    switchView('detail');
     showLoading(true);
     state.activeMangaId = mangaId;
 
@@ -1257,10 +1259,30 @@
   async function openReader(mangaId, chapterId, chapterNumber, mode = 'webtoon', updateHash = true) {
     stopAutoScroll();
     closeAutoScrollModal();
+    switchView('reader');
     showLoading(true);
     state.activeMangaId = mangaId;
     state.activeChapterId = chapterId;
     state.activeChapterNumber = chapterNumber;
+
+    if (state.activeManga && (state.activeManga.manga_id === mangaId || state.activeManga.slug === mangaId)) {
+      DOM.readerMangaTitle.textContent = state.activeManga.title || 'Komik';
+    }
+    if (chapterNumber != null) {
+      DOM.readerChapterTitle.textContent = `Chapter ${chapterNumber}`;
+      if (DOM.readerDockChapterText) {
+        DOM.readerDockChapterText.textContent = `Ch. ${chapterNumber}`;
+      }
+    }
+
+    if (DOM.webtoonContainer && (!state.activeChapterPages || state.activeChapterPages.length === 0)) {
+      DOM.webtoonContainer.innerHTML = `
+        <div class="state-container reader-loader-state">
+          <div class="spinner" aria-hidden="true"></div>
+          <p class="state-text">Memuat halaman chapter...</p>
+        </div>
+      `;
+    }
     
     const saved = getLocalProgress(mangaId, chapterId);
     state.readMode = (saved && saved.readMode) ? saved.readMode : mode;

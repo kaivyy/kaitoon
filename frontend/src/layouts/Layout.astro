@@ -20,6 +20,22 @@ import '../styles/global.css';
   <meta name="description" content={description}>
   <meta name="color-scheme" content="dark">
   <title>{title}</title>
+  <script is:inline>
+    (function() {
+      try {
+        var raw = window.location.hash || '';
+        if (!raw) {
+          raw = sessionStorage.getItem('kaitoon_route') || localStorage.getItem('kaitoon_route') || '';
+        }
+        var clean = raw.replace(/^#\/?/, '');
+        if (clean.indexOf('reader') === 0) {
+          document.documentElement.classList.add('route-reader-initial');
+        } else if (clean.indexOf('manga') === 0) {
+          document.documentElement.classList.add('route-detail-initial');
+        }
+      } catch (e) {}
+    })();
+  </script>
 </head>
 <body>
   <slot />

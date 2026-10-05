@@ -1122,6 +1122,27 @@ button:active {
   background-color: #1e1e1e;
 }
 
+/* Route preload prevention for reader and detail views */
+html.route-reader-initial #catalog-view,
+html.route-reader-initial #detail-view,
+html.route-reader-initial #app-header,
+html.route-reader-initial #mobile-bottom-nav {
+  display: none !important;
+}
+
+html.route-reader-initial #reader-view {
+  display: block !important;
+}
+
+html.route-detail-initial #catalog-view,
+html.route-detail-initial #reader-view {
+  display: none !important;
+}
+
+html.route-detail-initial #detail-view {
+  display: block !important;
+}
+
 /* Reader View (Full Screen Distraction-Free) */
 .reader-view {
   position: fixed;
@@ -1725,6 +1746,10 @@ button:active {
 
 .state-container[hidden] {
   display: none !important;
+}
+
+.reader-loader-state {
+  min-height: 60vh;
 }
 
 .spinner {
