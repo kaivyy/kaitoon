@@ -26,6 +26,7 @@ import { createReaderController } from './reader.js';
     isControllerVisible: true,
     searchDebounceTimer: null,
     catalogPage: 1,
+    catalogTotalPages: null,
     catalogHasNext: true,
     favoritesList: [],
     historyList: [],
@@ -68,6 +69,7 @@ import { createReaderController } from './reader.js';
     catalogCount: document.getElementById('catalog-count'),
     comicGrid: document.getElementById('comic-grid'),
     paginationControls: document.getElementById('pagination-controls'),
+    paginationPages: document.getElementById('pagination-pages'),
     prevPageBtn: document.getElementById('prev-page-btn'),
     nextPageBtn: document.getElementById('next-page-btn'),
     pageNumDisplay: document.getElementById('page-num-display'),
@@ -421,9 +423,14 @@ import { createReaderController } from './reader.js';
       }
 
       state.catalogPage = page;
+      if (result && result.meta && result.meta.total_page) {
+        state.catalogTotalPages = Number(result.meta.total_page);
+      } else {
+        state.catalogTotalPages = null;
+      }
       state.catalogHasNext = (result && result.meta && result.meta.has_next != null)
         ? Boolean(result.meta.has_next)
-        : items.length >= (state.activeServer === 'komiku' ? 10 : 20);
+        : (state.catalogTotalPages ? state.catalogPage < state.catalogTotalPages : items.length >= (state.activeServer === 'komiku' ? 10 : 20));
       if (DOM.catalogCount) {
         DOM.catalogCount.textContent = `(${items.length} judul)`;
       }
@@ -653,27 +660,127 @@ import { createReaderController } from './reader.js';
     });
   }
 
-  // Setup Pagination
+  // Setup Pagination (< ..234.. >)
   function setupPagination() {
     if (state.activeTab !== 'latest') {
-      DOM.paginationControls.hidden = true;
+      if (DOM.paginationControls) DOM.paginationControls.hidden = true;
       return;
     }
-    DOM.paginationControls.hidden = false;
-    DOM.pageNumDisplay.textContent = `Halaman ${state.catalogPage}`;
-    DOM.prevPageBtn.disabled = state.catalogPage <= 1;
-    DOM.nextPageBtn.disabled = !state.catalogHasNext;
+    if (DOM.paginationControls) DOM.paginationControls.hidden = false;
 
-    DOM.prevPageBtn.onclick = () => {
-      if (state.catalogPage > 1) {
-        loadLatestComics(state.catalogPage - 1);
+    if (DOM.pageNumDisplay) {
+      DOM.pageNumDisplay.textContent = `Halaman ${state.catalogPage}`;
+    }
+
+    const currentPage = state.catalogPage;
+    const totalPages = state.catalogTotalPages;
+    const hasNext = state.catalogHasNext;
+
+    if (DOM.prevPageBtn) {
+      DOM.prevPageBtn.disabled = currentPage <= 1;
+      DOM.prevPageBtn.onclick = () => {
+        if (currentPage > 1) {
+          loadLatestComics(currentPage - 1);
+        }
+      };
+    }
+
+    if (DOM.nextPageBtn) {
+      DOM.nextPageBtn.disabled = !hasNext;
+      DOM.nextPageBtn.onclick = () => {
+        if (hasNext) {
+          loadLatestComics(currentPage + 1);
+        }
+      };
+    }
+
+    if (!DOM.paginationPages) return;
+    DOM.paginationPages.innerHTML = '';
+
+    // Calculate visible page numbers and ellipsis
+    let pages = [];
+    let showLeadingEllipsis = false;
+    let showTrailingEllipsis = false;
+
+    if (currentPage <= 2) {
+      const maxP = totalPages ? Math.min(totalPages, 4) : (hasNext ? 4 : currentPage);
+      for (let i = 1; i <= maxP; i++) {
+        pages.push(i);
       }
-    };
-    DOM.nextPageBtn.onclick = () => {
-      if (state.catalogHasNext) {
-        loadLatestComics(state.catalogPage + 1);
+      showLeadingEllipsis = false;
+      showTrailingEllipsis = totalPages ? (totalPages > maxP) : hasNext;
+    } else {
+      showLeadingEllipsis = true;
+      if (totalPages && currentPage >= totalPages) {
+        const startP = Math.max(1, totalPages - 2);
+        for (let i = startP; i <= totalPages; i++) {
+          pages.push(i);
+        }
+        showTrailingEllipsis = false;
+      } else if (totalPages && currentPage === totalPages - 1) {
+        const startP = Math.max(1, currentPage - 1);
+        for (let i = startP; i <= totalPages; i++) {
+          pages.push(i);
+        }
+        showTrailingEllipsis = false;
+      } else {
+        pages = [currentPage - 1, currentPage, currentPage + 1];
+        showTrailingEllipsis = totalPages ? (currentPage + 1 < totalPages) : hasNext;
       }
-    };
+    }
+
+    // 1. Leading Ellipsis (.. )
+    if (showLeadingEllipsis) {
+      const leadBtn = document.createElement('button');
+      leadBtn.type = 'button';
+      leadBtn.className = 'btn-page-ellipsis';
+      leadBtn.textContent = '..';
+      const targetPage = Math.max(1, currentPage - 3);
+      leadBtn.setAttribute('data-page', targetPage.toString());
+      leadBtn.setAttribute('aria-label', `Lompat ke halaman ${targetPage}`);
+      leadBtn.title = `Lompat ke halaman ${targetPage}`;
+      DOM.paginationPages.appendChild(leadBtn);
+    }
+
+    // 2. Numbered Page Buttons
+    pages.forEach(p => {
+      const pageBtn = document.createElement('button');
+      pageBtn.type = 'button';
+      pageBtn.className = 'btn-page-num' + (p === currentPage ? ' active' : '');
+      pageBtn.textContent = p.toString();
+      pageBtn.setAttribute('data-page', p.toString());
+      pageBtn.setAttribute('aria-label', `Halaman ${p}`);
+      if (p === currentPage) {
+        pageBtn.setAttribute('aria-current', 'page');
+      }
+      DOM.paginationPages.appendChild(pageBtn);
+    });
+
+    // 3. Trailing Ellipsis (.. )
+    if (showTrailingEllipsis) {
+      const trailBtn = document.createElement('button');
+      trailBtn.type = 'button';
+      trailBtn.className = 'btn-page-ellipsis';
+      trailBtn.textContent = '..';
+      const targetPage = totalPages ? Math.min(totalPages, currentPage + 3) : (currentPage + 3);
+      trailBtn.setAttribute('data-page', targetPage.toString());
+      trailBtn.setAttribute('aria-label', `Lompat ke halaman ${targetPage}`);
+      trailBtn.title = `Lompat ke halaman ${targetPage}`;
+      DOM.paginationPages.appendChild(trailBtn);
+    }
+  }
+
+  // Delegated Click Handler for Page Numbers & Ellipsis
+  if (DOM.paginationPages) {
+    DOM.paginationPages.addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-page]');
+      if (btn) {
+        const pageNum = parseInt(btn.getAttribute('data-page'), 10);
+        if (pageNum && pageNum !== state.catalogPage && pageNum >= 1) {
+          loadLatestComics(pageNum);
+        }
+      }
+    });
   }
 
   // Open Detail View

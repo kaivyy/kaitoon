@@ -18,19 +18,16 @@ const { title = "Komik Terbaru", count = "" } = Astro.props;
   <div id="comic-grid" class="comic-grid" role="list">
     <slot />
   </div>
-
-  <div id="pagination-controls" class="pagination-bar pagination-dock" hidden>
-    <button id="prev-page-btn" class="btn btn-pagination" disabled aria-label="Halaman Sebelumnya">
+  <div id="pagination-controls" class="pagination-bar pagination-dock" hidden aria-label="Navigasi Halaman Komik">
+    <button id="prev-page-btn" class="btn-page-nav btn-pagination" disabled aria-label="Halaman Sebelumnya" title="Halaman Sebelumnya">
       <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <polyline points="15 18 9 12 15 6"></polyline>
       </svg>
-      <span>Sebelumnya</span>
     </button>
-    <div class="pagination-badge-wrap">
-      <span id="page-num-display" class="page-indicator-text">Halaman 1</span>
+    <div id="pagination-pages" class="pagination-pages" role="navigation" aria-label="Daftar Halaman">
+      <span id="page-num-display" class="page-indicator-text" hidden>Halaman 1</span>
     </div>
-    <button id="next-page-btn" class="btn btn-pagination" aria-label="Halaman Selanjutnya">
-      <span>Selanjutnya</span>
+    <button id="next-page-btn" class="btn-page-nav btn-pagination" aria-label="Halaman Selanjutnya" title="Halaman Selanjutnya">
       <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <polyline points="9 18 15 12 9 6"></polyline>
       </svg>

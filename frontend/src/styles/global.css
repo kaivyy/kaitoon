@@ -616,61 +616,132 @@ button:active {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  margin-top: 40px;
-  padding: 10px 16px;
+  gap: 6px;
+  margin-top: 36px;
+  margin-bottom: 16px;
+  padding: 6px 10px;
   background-color: #0d0d0d;
   border: 1px solid var(--border-color);
   border-radius: 9999px;
-  max-width: 440px;
+  width: fit-content;
+  max-width: 95%;
   margin-left: auto;
   margin-right: auto;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6);
+  flex-wrap: nowrap;
 }
 
-.btn-pagination {
+.btn-page-nav {
+  width: 42px;
+  height: 42px;
+  min-width: 42px;
   min-height: 42px;
-  padding: 8px 18px;
-  font-size: 0.88rem;
-  font-weight: 600;
   border-radius: 9999px;
-  background-color: #161616;
+  background-color: #141414;
   border: 1px solid var(--border-subtle);
   color: var(--text-primary);
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
   transition: all 0.15s ease;
 }
 
-.btn-pagination:hover:not(:disabled) {
+.btn-page-nav .btn-icon-svg {
+  width: 18px;
+  height: 18px;
+}
+
+.btn-page-nav:hover:not(:disabled) {
   background-color: #222222;
   border-color: var(--accent-emerald);
   color: var(--accent-emerald);
-  transform: translateY(-1px);
+  transform: scale(1.05);
 }
 
-.btn-pagination:disabled {
-  opacity: 0.3;
+.btn-page-nav:disabled {
+  opacity: 0.25;
   cursor: not-allowed;
   border-color: #1a1a1a;
   color: var(--text-muted);
 }
 
-.pagination-badge-wrap {
-  display: flex;
+.pagination-pages {
+  display: inline-flex;
   align-items: center;
+  gap: 5px;
+}
+
+.btn-page-num {
+  min-width: 42px;
+  height: 42px;
+  min-height: 42px;
+  padding: 0 10px;
+  border-radius: 9999px;
+  background-color: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  font-size: 0.92rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.btn-page-num:hover:not(.active) {
+  background-color: #1a1a1a;
+  color: #ffffff;
+  border-color: var(--border-subtle);
+}
+
+.btn-page-num.active {
+  background-color: var(--accent-emerald);
+  color: #000000;
+  font-weight: 700;
+  border-color: var(--accent-emerald);
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.4);
+}
+
+.btn-page-ellipsis {
+  min-width: 36px;
+  height: 42px;
+  min-height: 42px;
+  padding: 0 6px;
+  border-radius: 9999px;
+  background-color: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.btn-page-ellipsis:hover {
+  background-color: #1a1a1a;
+  color: var(--accent-emerald);
+  border-color: var(--border-subtle);
+}
+
+.btn-pagination {
+  min-height: 42px;
+}
+
+.pagination-badge-wrap {
+  display: none;
 }
 
 .page-indicator-text {
-  font-size: 0.88rem;
-  font-weight: 700;
-  color: #ffffff;
-  background-color: #161616;
-  border: 1px solid var(--border-subtle);
-  padding: 6px 14px;
-  border-radius: 9999px;
-  letter-spacing: 0.02em;
+  display: none;
 }
 
 /* Server Switcher Bar (Placed at the very bottom) */
