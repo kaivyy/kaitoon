@@ -341,7 +341,7 @@ import { createReaderController } from './reader.js';
     updateTabButtonsUI(tabKey);
 
     if (DOM.serverSwitcherBar) {
-      DOM.serverSwitcherBar.hidden = (tabKey !== 'latest');
+      DOM.serverSwitcherBar.hidden = (tabKey !== 'latest') || (!DOM.comicGrid || DOM.comicGrid.children.length === 0);
     }
 
     if (tabKey === 'latest') {
@@ -374,6 +374,21 @@ import { createReaderController } from './reader.js';
     updateServerSwitcherUI();
     showToast(newServer === 'komiku' ? 'Server beralih ke Server 2 (Komiku)' : 'Server beralih ke Server 1 (Shinigami)');
     state.catalogPage = 1;
+
+    // Immediately restore cached catalog for target server if available
+    if (state.currentView === 'catalog' && (!DOM.searchInput || !DOM.searchInput.value.trim())) {
+      try {
+        const cached = localStorage.getItem('kaitoon_catalog_html_' + newServer);
+        if (cached && DOM.comicGrid) {
+          DOM.comicGrid.innerHTML = cached;
+          if (DOM.serverSwitcherBar) DOM.serverSwitcherBar.hidden = false;
+        } else if (DOM.comicGrid) {
+          DOM.comicGrid.innerHTML = '';
+          if (DOM.serverSwitcherBar) DOM.serverSwitcherBar.hidden = true;
+        }
+      } catch (e) {}
+    }
+
     if (state.currentView === 'catalog') {
       if (DOM.searchInput && DOM.searchInput.value.trim()) {
         performSearch(DOM.searchInput.value.trim());
@@ -385,7 +400,9 @@ import { createReaderController } from './reader.js';
 
   // Load Latest Comics
   async function loadLatestComics(page = 1) {
-    if (DOM.serverSwitcherBar) DOM.serverSwitcherBar.hidden = false;
+    if (DOM.serverSwitcherBar) {
+      DOM.serverSwitcherBar.hidden = !DOM.comicGrid || DOM.comicGrid.children.length === 0;
+    }
     showLoading(true);
 
     try {
@@ -398,6 +415,7 @@ import { createReaderController } from './reader.js';
       if (!items || items.length === 0) {
         DOM.comicGrid.innerHTML = '';
         if (DOM.paginationControls) DOM.paginationControls.hidden = true;
+        if (DOM.serverSwitcherBar) DOM.serverSwitcherBar.hidden = true;
         showEmpty('Tidak Ada Komik', 'Belum ada komik terbaru dari server ini.', 'Muat Ulang', () => loadLatestComics(1));
         return;
       }
@@ -410,9 +428,9 @@ import { createReaderController } from './reader.js';
         DOM.catalogCount.textContent = `(${items.length} judul)`;
       }
 
-      DOM.comicGrid.innerHTML = '';
       renderComicGrid(items);
       setupPagination();
+      if (DOM.serverSwitcherBar) DOM.serverSwitcherBar.hidden = false;
       state.renderedTab = 'latest';
       if (page > 1) {
         window.scrollTo({ top: 0, behavior: 'instant' });
@@ -437,13 +455,14 @@ import { createReaderController } from './reader.js';
       if (!items || items.length === 0) {
         DOM.comicGrid.innerHTML = '';
         if (DOM.paginationControls) DOM.paginationControls.hidden = true;
+        if (DOM.serverSwitcherBar) DOM.serverSwitcherBar.hidden = true;
         showEmpty('Belum Ada Favorit', 'Tandai komik favorit Anda untuk menerima pembaruan otomatis.', 'Jelajahi Terbaru', () => switchTab('latest'));
         return;
       }
 
       if (DOM.paginationControls) DOM.paginationControls.hidden = true;
+      if (DOM.serverSwitcherBar) DOM.serverSwitcherBar.hidden = true;
       if (DOM.catalogCount) DOM.catalogCount.textContent = `(${items.length} judul tersimpan)`;
-      DOM.comicGrid.innerHTML = '';
       renderComicGrid(items.map(item => ({
         manga_id: item.manga_id,
         title: item.manga_title,
@@ -473,13 +492,14 @@ import { createReaderController } from './reader.js';
       if (!items || items.length === 0) {
         DOM.comicGrid.innerHTML = '';
         if (DOM.paginationControls) DOM.paginationControls.hidden = true;
+        if (DOM.serverSwitcherBar) DOM.serverSwitcherBar.hidden = true;
         showEmpty('Belum Ada Riwayat', 'Komik yang Anda baca akan otomatis tercatat di sini.', 'Mulai Membaca', () => switchTab('latest'));
         return;
       }
 
       if (DOM.paginationControls) DOM.paginationControls.hidden = true;
+      if (DOM.serverSwitcherBar) DOM.serverSwitcherBar.hidden = true;
       if (DOM.catalogCount) DOM.catalogCount.textContent = `(${items.length} judul terakhir dibaca)`;
-      DOM.comicGrid.innerHTML = '';
       renderComicGrid(items.map(item => ({
         manga_id: item.manga_id,
         title: item.manga_title,
@@ -503,6 +523,7 @@ import { createReaderController } from './reader.js';
       const card = document.createElement('div');
       card.className = 'comic-card';
       card.setAttribute('role', 'listitem');
+      card.setAttribute('data-manga-id', item.manga_id);
       card.tabIndex = 0;
 
       const coverUrl = item.cover_image_url || '';
@@ -517,6 +538,8 @@ import { createReaderController } from './reader.js';
       if (ch1Num && Number(ch1Num) > 1) {
         ch2Num = String(Number(ch1Num) - 1);
       }
+
+      const ch1Id = item.latest_chapter_id || item.last_chapter_id || '';
 
       let timeText = 'Terbaru';
       if (item.release_time) {
@@ -539,13 +562,20 @@ import { createReaderController } from './reader.js';
           <h3 class="card-title" title="${escapeHtml(title)}">${escapeHtml(title)}</h3>
           ${ch1Num ? `
           <div class="card-chapter-row">
-            <button type="button" class="card-ch-btn card-ch-btn-1 card-ch-btn-latest" title="Baca Chapter ${ch1Num}">
-              <span class="ch-btn-num">Ch. ${ch1Num}</span>
+            <button type="button" class="card-ch-btn card-ch-btn-1 card-ch-btn-latest"
+              data-manga-id="${escapeHtml(item.manga_id)}"
+              data-ch-id="${escapeHtml(ch1Id)}"
+              data-ch-num="${escapeHtml(String(ch1Num))}"
+              title="Baca Chapter ${escapeHtml(String(ch1Num))}">
+              <span class="ch-btn-num">Ch. ${escapeHtml(String(ch1Num))}</span>
               <span class="ch-btn-time" title="${escapeHtml(timeText)}">${escapeHtml(timeText)}</span>
             </button>
             ${ch2Num ? `
-            <button type="button" class="card-ch-btn card-ch-btn-2" title="Baca Chapter ${ch2Num}">
-              <span class="ch-btn-num">Ch. ${ch2Num}</span>
+            <button type="button" class="card-ch-btn card-ch-btn-2"
+              data-manga-id="${escapeHtml(item.manga_id)}"
+              data-ch-num="${escapeHtml(String(ch2Num))}"
+              title="Baca Chapter ${escapeHtml(String(ch2Num))}">
+              <span class="ch-btn-num">Ch. ${escapeHtml(String(ch2Num))}</span>
               <span class="ch-btn-action">
                 <span>Baca</span>
                 <svg class="mini-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -559,37 +589,67 @@ import { createReaderController } from './reader.js';
         </div>
       `;
 
-      const ch1Btn = card.querySelector('.card-ch-btn-1');
-      if (ch1Btn && ch1Num) {
-        ch1Btn.onclick = (e) => {
-          e.stopPropagation();
-          if (item.latest_chapter_id) {
-            openReader(item.manga_id, item.latest_chapter_id, ch1Num, state.readMode);
-          } else {
-            openDirectChapterByNumber(item.manga_id, ch1Num);
-          }
-        };
-      }
-
-      const ch2Btn = card.querySelector('.card-ch-btn-2');
-      if (ch2Btn && ch2Num) {
-        ch2Btn.onclick = (e) => {
-          e.stopPropagation();
-          openDirectChapterByNumber(item.manga_id, ch2Num);
-        };
-      }
-
-      const clickHandler = () => openMangaDetail(item.manga_id);
-      card.onclick = clickHandler;
-      card.onkeydown = (e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          if (e.target.closest('button')) return;
-          e.preventDefault();
-          clickHandler();
-        }
-      };
-
       DOM.comicGrid.appendChild(card);
+    });
+
+    if (state.currentView === 'catalog' && state.activeTab === 'latest' && state.catalogPage === 1 && items && items.length > 0 && (!DOM.searchInput || !DOM.searchInput.value.trim())) {
+      try {
+        localStorage.setItem('kaitoon_catalog_html_' + state.activeServer, DOM.comicGrid.innerHTML);
+      } catch (e) {}
+    }
+  }
+
+  // Delegated Click & Keydown Handler for Comic Grid (Supports Cached Frame 0 Cards)
+  if (DOM.comicGrid) {
+    DOM.comicGrid.addEventListener('click', (e) => {
+      const ch1Btn = e.target.closest('.card-ch-btn-1');
+      if (ch1Btn) {
+        e.stopPropagation();
+        const mangaId = ch1Btn.getAttribute('data-manga-id');
+        const chId = ch1Btn.getAttribute('data-ch-id');
+        const chNum = ch1Btn.getAttribute('data-ch-num');
+        if (mangaId) {
+          if (chId) {
+            openReader(mangaId, chId, chNum, state.readMode);
+          } else if (chNum) {
+            openDirectChapterByNumber(mangaId, chNum);
+          }
+        }
+        return;
+      }
+
+      const ch2Btn = e.target.closest('.card-ch-btn-2');
+      if (ch2Btn) {
+        e.stopPropagation();
+        const mangaId = ch2Btn.getAttribute('data-manga-id');
+        const chNum = ch2Btn.getAttribute('data-ch-num');
+        if (mangaId && chNum) {
+          openDirectChapterByNumber(mangaId, chNum);
+        }
+        return;
+      }
+
+      const card = e.target.closest('.comic-card');
+      if (card) {
+        const mangaId = card.getAttribute('data-manga-id');
+        if (mangaId) {
+          openMangaDetail(mangaId);
+        }
+      }
+    });
+
+    DOM.comicGrid.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        if (e.target.closest('button')) return;
+        const card = e.target.closest('.comic-card');
+        if (card) {
+          e.preventDefault();
+          const mangaId = card.getAttribute('data-manga-id');
+          if (mangaId) {
+            openMangaDetail(mangaId);
+          }
+        }
+      }
     });
   }
 
@@ -1698,7 +1758,9 @@ import { createReaderController } from './reader.js';
       return;
     }
 
-    if (DOM.serverSwitcherBar) DOM.serverSwitcherBar.hidden = false;
+    if (DOM.serverSwitcherBar) {
+      DOM.serverSwitcherBar.hidden = !DOM.comicGrid || DOM.comicGrid.children.length === 0;
+    }
     DOM.catalogTitle.textContent = `Hasil Pencarian: "${trimmed}"`;
     showLoading(true);
 
@@ -1714,12 +1776,13 @@ import { createReaderController } from './reader.js';
 
       if (items.length === 0) {
         DOM.comicGrid.innerHTML = '';
+        if (DOM.serverSwitcherBar) DOM.serverSwitcherBar.hidden = true;
         showEmpty('Tidak Ditemukan', `Tidak ada komik yang cocok dengan "${trimmed}".`, 'Lihat Terbaru', () => returnToCatalog('latest'));
         return;
       }
 
-      DOM.comicGrid.innerHTML = '';
       renderComicGrid(items);
+      if (DOM.serverSwitcherBar) DOM.serverSwitcherBar.hidden = false;
       state.renderedTab = 'search';
     } catch (err) {
       showLoading(false);

@@ -18,6 +18,7 @@ const { title = "Komik Terbaru", count = "" } = Astro.props;
   <div id="comic-grid" class="comic-grid" role="list">
     <slot />
   </div>
+
   <div id="pagination-controls" class="pagination-bar pagination-dock" hidden>
     <button id="prev-page-btn" class="btn btn-pagination" disabled aria-label="Halaman Sebelumnya">
       <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -37,7 +38,7 @@ const { title = "Komik Terbaru", count = "" } = Astro.props;
   </div>
 
   <!-- Server Switcher (Pilihan Server Paling Bawah) -->
-  <div id="server-switcher-bar" class="server-switcher-bar" aria-label="Pilihan Server Sumber Komik">
+  <div id="server-switcher-bar" class="server-switcher-bar" aria-label="Pilihan Server Sumber Komik" hidden>
     <div class="server-switcher-label">
       <svg class="server-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
@@ -74,4 +75,27 @@ const { title = "Komik Terbaru", count = "" } = Astro.props;
       </button>
     </div>
   </div>
+
+  <script is:inline>
+    (function() {
+      try {
+        var server = localStorage.getItem('kaitoon_server') || 'shinigami';
+        var cached = localStorage.getItem('kaitoon_catalog_html_' + server);
+        var grid = document.getElementById('comic-grid');
+        var switcher = document.getElementById('server-switcher-bar');
+        var shinigamiBtn = document.getElementById('server-btn-shinigami');
+        var komikuBtn = document.getElementById('server-btn-komiku');
+        if (server === 'komiku') {
+          if (shinigamiBtn) { shinigamiBtn.classList.remove('active'); shinigamiBtn.setAttribute('aria-checked', 'false'); }
+          if (komikuBtn) { komikuBtn.classList.add('active'); komikuBtn.setAttribute('aria-checked', 'true'); }
+        }
+        if (cached && grid) {
+          grid.innerHTML = cached;
+          if (switcher) switcher.hidden = false;
+        } else if (switcher) {
+          switcher.hidden = true;
+        }
+      } catch (e) {}
+    })();
+  </script>
 </section>
