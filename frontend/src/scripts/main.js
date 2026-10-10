@@ -90,6 +90,9 @@ import { createReaderController } from './reader.js';
     detailContinueBtn: document.getElementById('detail-continue-btn'),
     detailFavoriteBtn: document.getElementById('detail-favorite-btn'),
     detailChapterCount: document.getElementById('detail-chapter-count'),
+    detailProgressText: document.getElementById('detail-progress-text'),
+    detailProgressUnread: document.getElementById('detail-progress-unread'),
+    detailMarkAllBtn: document.getElementById('detail-mark-all-btn'),
     chapterFilterInput: document.getElementById('chapter-filter-input'),
     sortOrderBtn: document.getElementById('sort-order-btn'),
     chapterList: document.getElementById('chapter-list'),
@@ -183,6 +186,129 @@ import { createReaderController } from './reader.js';
       if (s) return s;
     }
     return fallbackId || '';
+  }
+
+  // Read Chapters Persistence & Local Synchronization
+  function getStorageReadChaptersKey(mangaId) {
+    return `kaitoon_read_chapters_${mangaId}`;
+  }
+
+  function getLocalReadSet(mangaId) {
+    if (!mangaId) return new Set();
+    try {
+      const raw = localStorage.getItem(getStorageReadChaptersKey(mangaId));
+      if (!raw) return new Set();
+      const list = JSON.parse(raw);
+      if (Array.isArray(list)) {
+        return new Set(list.map(String));
+      }
+      return new Set();
+    } catch {
+      return new Set();
+    }
+  }
+
+  function saveLocalReadSet(mangaId, set) {
+    if (!mangaId) return;
+    try {
+      const arr = Array.from(set);
+      localStorage.setItem(getStorageReadChaptersKey(mangaId), JSON.stringify(arr));
+    } catch {}
+  }
+
+  function markChapterAsReadLocal(mangaId, chapterId, chapterNumber) {
+    if (!mangaId) return;
+    const set = getLocalReadSet(mangaId);
+    if (chapterId) set.add(String(chapterId));
+    if (chapterNumber != null) set.add(String(chapterNumber));
+    saveLocalReadSet(mangaId, set);
+  }
+
+  function isChapterRead(mangaId, chapter, historyItem = null) {
+    if (!mangaId || !chapter) return false;
+    const chId = chapter.chapter_id || chapter.id;
+    const chNum = chapter.chapter_number;
+    const set1 = getLocalReadSet(mangaId);
+    if (chId && set1.has(String(chId))) return true;
+    if (chNum != null && set1.has(String(chNum))) return true;
+    if (state.activeMangaId && state.activeMangaId !== mangaId) {
+      const set2 = getLocalReadSet(state.activeMangaId);
+      if (chId && set2.has(String(chId))) return true;
+      if (chNum != null && set2.has(String(chNum))) return true;
+    }
+    if (historyItem) {
+      if (chId && historyItem.last_chapter_id && String(historyItem.last_chapter_id) === String(chId)) return true;
+      if (chNum != null && historyItem.last_chapter_number != null && Number(chNum) === Number(historyItem.last_chapter_number)) return true;
+    }
+    return false;
+  }
+
+  async function toggleChapterRead(mangaId, chapter, isRead) {
+    if (!mangaId || !chapter) return;
+    const chId = chapter.chapter_id || chapter.id || '';
+    const chNum = chapter.chapter_number != null ? Number(chapter.chapter_number) : null;
+    const set = getLocalReadSet(mangaId);
+    if (isRead) {
+      if (chId) set.add(String(chId));
+      if (chNum != null) set.add(String(chNum));
+    } else {
+      if (chId) set.delete(String(chId));
+      if (chNum != null) set.delete(String(chNum));
+    }
+    saveLocalReadSet(mangaId, set);
+    if (state.activeMangaId && state.activeMangaId !== mangaId) {
+      saveLocalReadSet(state.activeMangaId, set);
+    }
+
+    try {
+      await apiFetch('/api/history/mark-read', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          manga_id: mangaId,
+          chapter_id: chId,
+          chapter_number: chNum,
+          is_read: isRead
+        })
+      });
+    } catch (err) {
+      console.warn('Gagal sinkronisasi tanda baca chapter ke server:', err);
+    }
+
+    if (state.activeManga && state.activeManga.chapters) {
+      renderChapterList(state.activeManga.chapters, state.activeHistoryItem);
+    }
+  }
+
+  async function markAllChaptersReadHandler(chapters) {
+    if (!state.activeMangaId || !chapters || chapters.length === 0) return;
+    const mangaId = state.activeMangaId;
+    const set = getLocalReadSet(mangaId);
+    const chapterPayloads = [];
+    chapters.forEach(ch => {
+      const chId = ch.chapter_id || ch.id || '';
+      const chNum = ch.chapter_number != null ? Number(ch.chapter_number) : null;
+      if (chId) set.add(String(chId));
+      if (chNum != null) set.add(String(chNum));
+      chapterPayloads.push({ chapter_id: chId, chapter_number: chNum });
+    });
+    saveLocalReadSet(mangaId, set);
+
+    try {
+      await apiFetch('/api/history/mark-all-read', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          manga_id: mangaId,
+          chapters: chapterPayloads
+        })
+      });
+      showToast('Semua chapter berhasil ditandai sudah dibaca.');
+    } catch (err) {
+      showToast(`Gagal menandai semua chapter: ${err.message}`);
+    }
+
+    renderChapterList(chapters, state.activeHistoryItem);
   }
 
   // UI State Helpers
@@ -414,6 +540,30 @@ import { createReaderController } from './reader.js';
       hideEmpty();
       const items = Array.isArray(result) ? result : (result.data || []);
 
+      if (!state.historyList || state.historyList.length === 0) {
+        apiFetch('/api/history').then(hist => {
+          if (Array.isArray(hist) && hist.length > 0) {
+            state.historyList = hist;
+            items.forEach(it => {
+              const h = hist.find(x => x.manga_id === it.manga_id);
+              if (h && h.last_chapter_number && DOM.comicGrid) {
+                const card = DOM.comicGrid.querySelector(`[data-manga-id="${it.manga_id}"]`);
+                if (card) {
+                  const badgeRow = card.querySelector('.card-badge-row');
+                  if (badgeRow && !badgeRow.querySelector('.card-pill-progress')) {
+                    const pill = document.createElement('span');
+                    pill.className = 'card-pill card-pill-progress';
+                    pill.textContent = `Dibaca Ch. ${h.last_chapter_number}`;
+                    pill.title = `Terakhir dibaca: Ch. ${h.last_chapter_number}`;
+                    badgeRow.appendChild(pill);
+                  }
+                }
+              }
+            });
+          }
+        }).catch(() => {});
+      }
+
       if (!items || items.length === 0) {
         DOM.comicGrid.innerHTML = '';
         if (DOM.paginationControls) DOM.paginationControls.hidden = true;
@@ -548,6 +698,12 @@ import { createReaderController } from './reader.js';
 
       const ch1Id = item.latest_chapter_id || item.last_chapter_id || '';
 
+      const isCh1Read = ch1Num ? isChapterRead(item.manga_id, { chapter_number: ch1Num, chapter_id: ch1Id }) : false;
+      const isCh2Read = ch2Num ? isChapterRead(item.manga_id, { chapter_number: ch2Num }) : false;
+
+      const hist = (state.historyList || []).find(h => h.manga_id === item.manga_id);
+      const lastReadNum = item.last_chapter_number || (hist && hist.last_chapter_number);
+
       let timeText = 'Terbaru';
       if (item.release_time) {
         timeText = item.release_time;
@@ -563,31 +719,33 @@ import { createReaderController } from './reader.js';
           <div class="card-badge-row">
             ${rating ? `<span class="card-pill card-pill-rating">&star; ${rating}</span>` : ''}
             ${hasUpdate ? '<span class="card-pill card-pill-new">BARU</span>' : ''}
+            ${lastReadNum ? `<span class="card-pill card-pill-progress" title="Terakhir dibaca: Ch. ${escapeHtml(String(lastReadNum))}">Dibaca Ch. ${escapeHtml(String(lastReadNum))}</span>` : ''}
           </div>
         </div>
         <div class="card-body">
           <h3 class="card-title" title="${escapeHtml(title)}">${escapeHtml(title)}</h3>
           ${ch1Num ? `
           <div class="card-chapter-row">
-            <button type="button" class="card-ch-btn card-ch-btn-1 card-ch-btn-latest"
+            <button type="button" class="card-ch-btn card-ch-btn-1 card-ch-btn-latest ${isCh1Read ? 'is-read-btn' : ''}"
               data-manga-id="${escapeHtml(item.manga_id)}"
               data-ch-id="${escapeHtml(ch1Id)}"
               data-ch-num="${escapeHtml(String(ch1Num))}"
-              title="Baca Chapter ${escapeHtml(String(ch1Num))}">
+              title="${isCh1Read ? 'Sudah dibaca: Chapter ' + escapeHtml(String(ch1Num)) : 'Belum dibaca: Chapter ' + escapeHtml(String(ch1Num))}">
               <span class="ch-btn-num">Ch. ${escapeHtml(String(ch1Num))}</span>
-              <span class="ch-btn-time" title="${escapeHtml(timeText)}">${escapeHtml(timeText)}</span>
+              <span class="ch-btn-time" title="${escapeHtml(timeText)}">
+                ${escapeHtml(timeText)}
+                ${isCh1Read ? '<span class="ch-read-icon" title="Sudah dibaca"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg></span>' : '<span class="ch-unread-dot" title="Belum dibaca"></span>'}
+              </span>
             </button>
             ${ch2Num ? `
-            <button type="button" class="card-ch-btn card-ch-btn-2"
+            <button type="button" class="card-ch-btn card-ch-btn-2 ${isCh2Read ? 'is-read-btn' : ''}"
               data-manga-id="${escapeHtml(item.manga_id)}"
               data-ch-num="${escapeHtml(String(ch2Num))}"
-              title="Baca Chapter ${escapeHtml(String(ch2Num))}">
+              title="${isCh2Read ? 'Sudah dibaca: Chapter ' + escapeHtml(String(ch2Num)) : 'Belum dibaca: Chapter ' + escapeHtml(String(ch2Num))}">
               <span class="ch-btn-num">Ch. ${escapeHtml(String(ch2Num))}</span>
               <span class="ch-btn-action">
                 <span>Baca</span>
-                <svg class="mini-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <polyline points="9 18 15 12 9 6"></polyline>
-                </svg>
+                ${isCh2Read ? '<span class="ch-read-icon" title="Sudah dibaca"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg></span>' : '<span class="ch-unread-dot" title="Belum dibaca"></span>'}
               </span>
             </button>
             ` : ''}
@@ -788,10 +946,11 @@ import { createReaderController } from './reader.js';
     switchView('detail');
     showLoading(true);
     try {
-      const [detailRes, historyItems, watchlistItems] = await Promise.all([
+      const [detailRes, historyItems, watchlistItems, serverReadChapters] = await Promise.all([
         apiFetch(`/api/manga/${encodeURIComponent(mangaId)}?server=${state.activeServer}`),
         apiFetch('/api/history').catch(() => []),
-        apiFetch('/api/watchlist').catch(() => [])
+        apiFetch('/api/watchlist').catch(() => []),
+        apiFetch(`/api/history/${encodeURIComponent(mangaId)}/chapters`).catch(() => [])
       ]);
 
       showLoading(false);
@@ -801,6 +960,16 @@ import { createReaderController } from './reader.js';
       state.activeManga = detail;
       const canonicalId = (detail && detail.manga_id) || mangaId;
       state.activeMangaId = canonicalId;
+      if (Array.isArray(historyItems)) state.historyList = historyItems;
+
+      if (Array.isArray(serverReadChapters) && serverReadChapters.length > 0) {
+        const set = getLocalReadSet(canonicalId);
+        serverReadChapters.forEach(rc => {
+          if (rc.chapter_id) set.add(String(rc.chapter_id));
+          if (rc.chapter_number != null) set.add(String(rc.chapter_number));
+        });
+        saveLocalReadSet(canonicalId, set);
+      }
 
       if (DOM.chapterFilterInput) DOM.chapterFilterInput.value = '';
 
@@ -836,6 +1005,13 @@ import { createReaderController } from './reader.js';
 
       const chapters = detail.chapters || [];
       DOM.detailChapterCount.textContent = `${chapters.length} Chapter`;
+
+      if (DOM.detailMarkAllBtn) {
+        DOM.detailMarkAllBtn.onclick = () => {
+          markAllChaptersReadHandler(chapters);
+        };
+      }
+
       renderChapterList(chapters, histItem);
 
       switchView('detail');
@@ -927,6 +1103,25 @@ import { createReaderController } from './reader.js';
 
   function renderChapterList(chapters, historyItem) {
     DOM.chapterList.innerHTML = '';
+
+    // Calculate reading progress counts across all chapters of this comic
+    let readCount = 0;
+    chapters.forEach(c => {
+      if (isChapterRead(state.activeMangaId, c, historyItem)) {
+        readCount += 1;
+      }
+    });
+    const totalChapters = chapters.length;
+    const unreadCount = Math.max(0, totalChapters - readCount);
+
+    if (DOM.detailProgressText) {
+      DOM.detailProgressText.textContent = `Progres: ${readCount} dari ${totalChapters} dibaca`;
+    }
+    if (DOM.detailProgressUnread) {
+      DOM.detailProgressUnread.textContent = `${unreadCount} belum dibaca`;
+      DOM.detailProgressUnread.style.display = unreadCount === 0 ? 'none' : 'inline-block';
+    }
+
     const query = (DOM.chapterFilterInput && DOM.chapterFilterInput.value.trim().toLowerCase()) || '';
     let filtered = chapters;
     if (query) {
@@ -954,27 +1149,64 @@ import { createReaderController } from './reader.js';
     });
 
     const lastReadChId = historyItem ? historyItem.last_chapter_id : null;
+    const lastReadChNum = historyItem ? historyItem.last_chapter_number : null;
 
     sorted.forEach(ch => {
+      const isLastRead = (ch.chapter_id && ch.chapter_id === lastReadChId) ||
+                         (lastReadChNum != null && Number(ch.chapter_number) === Number(lastReadChNum));
+      const isRead = isChapterRead(state.activeMangaId, ch, historyItem);
+
       const item = document.createElement('div');
-      item.className = 'chapter-item';
-      if (ch.chapter_id === lastReadChId) {
-        item.classList.add('is-read');
+      item.className = 'chapter-item' + (isLastRead ? ' is-last-read' : (isRead ? ' is-read' : ' is-unread'));
+
+      let statusBadge = '';
+      if (isLastRead) {
+        statusBadge = '<span class="chapter-badge-last-read">Terakhir Dibaca</span>';
+      } else if (isRead) {
+        statusBadge = `
+          <span class="chapter-badge-read">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <span>Sudah Dibaca</span>
+          </span>
+        `;
+      } else {
+        statusBadge = `
+          <span class="chapter-badge-unread">
+            <span class="unread-dot-indicator"></span>
+            <span>Belum Dibaca</span>
+          </span>
+        `;
       }
 
       const releaseDate = ch.release_date || '';
-      const isReadBadge = ch.chapter_id === lastReadChId ? '<span class="chapter-read-badge">Terakhir Dibaca</span>' : '';
 
       item.innerHTML = `
-        <div class="chapter-info">
+        <div class="chapter-item-left">
           <span class="chapter-num">Chapter ${ch.chapter_number}</span>
           ${ch.chapter_title ? `<span class="chapter-title">${escapeHtml(ch.chapter_title)}</span>` : ''}
-          ${isReadBadge}
+          ${statusBadge}
         </div>
-        <div class="chapter-actions">
+        <div class="chapter-item-right">
           <span class="chapter-date">${formatRelativeTime(releaseDate)}</span>
+          <button type="button" class="chapter-toggle-read-btn ${isRead ? 'is-read' : ''}"
+            title="${isRead ? 'Tandai belum dibaca' : 'Tandai sudah dibaca'}"
+            aria-label="${isRead ? 'Tandai belum dibaca' : 'Tandai sudah dibaca'}">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              ${isRead ? '<polyline points="20 6 9 17 4 12"></polyline>' : '<circle cx="12" cy="12" r="9"></circle>'}
+            </svg>
+          </button>
         </div>
       `;
+
+      const toggleBtn = item.querySelector('.chapter-toggle-read-btn');
+      if (toggleBtn) {
+        toggleBtn.onclick = (e) => {
+          e.stopPropagation();
+          toggleChapterRead(state.activeMangaId, ch, !isRead);
+        };
+      }
 
       item.onclick = () => {
         openReader(state.activeMangaId, ch.chapter_id, ch.chapter_number, state.readMode);
@@ -1220,6 +1452,12 @@ import { createReaderController } from './reader.js';
   }
 
   async function saveReadingProgress(mangaId, chapterId, chapterNumber, mode) {
+    if (mangaId) {
+      markChapterAsReadLocal(mangaId, chapterId, chapterNumber);
+      if (state.activeMangaId && state.activeMangaId !== mangaId) {
+        markChapterAsReadLocal(state.activeMangaId, chapterId, chapterNumber);
+      }
+    }
     const manga = state.activeManga;
     const payload = {
       manga_id: mangaId,
@@ -1428,6 +1666,9 @@ import { createReaderController } from './reader.js';
     },
     onPageChangeCallback: (pageIndex) => {
       saveLocalProgress(state.activeMangaId, state.activeChapterId, { pageIndex });
+    },
+    isChapterReadCallback: (ch) => {
+      return isChapterRead(state.activeMangaId, ch, state.activeHistoryItem);
     }
   });
 

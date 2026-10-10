@@ -66,6 +66,17 @@ def init_db(db_path: Optional[str] = None) -> None:
                 )
                 """
             )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS read_chapters (
+                    manga_id TEXT NOT NULL,
+                    chapter_id TEXT NOT NULL,
+                    chapter_number REAL NOT NULL,
+                    read_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (manga_id, chapter_id)
+                )
+                """
+            )
     finally:
         conn.close()
 
@@ -105,6 +116,84 @@ def upsert_history(
                 """,
                 (manga_id, title, cover_url, ch_id, ch_num, read_mode),
             )
+            conn.execute(
+                """
+                INSERT OR IGNORE INTO read_chapters (manga_id, chapter_id, chapter_number, read_at)
+                VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+                """,
+                (manga_id, ch_id, ch_num),
+            )
+    finally:
+        conn.close()
+
+
+def mark_chapter_read(
+    manga_id: str,
+    chapter_id: str,
+    chapter_number: float,
+    is_read: bool = True,
+    db_path: Optional[str] = None,
+) -> None:
+    """Marks or unmarks a chapter as read in the database."""
+    conn = get_connection(db_path)
+    try:
+        with conn:
+            if is_read:
+                conn.execute(
+                    """
+                    INSERT OR IGNORE INTO read_chapters (manga_id, chapter_id, chapter_number, read_at)
+                    VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+                    """,
+                    (manga_id, chapter_id, chapter_number),
+                )
+            else:
+                conn.execute(
+                    "DELETE FROM read_chapters WHERE manga_id = ? AND chapter_id = ?",
+                    (manga_id, chapter_id),
+                )
+    finally:
+        conn.close()
+
+
+def mark_all_chapters_read(
+    manga_id: str,
+    chapters: List[Dict[str, Any]],
+    db_path: Optional[str] = None,
+) -> int:
+    """Marks multiple chapters as read for a manga."""
+    conn = get_connection(db_path)
+    count = 0
+    try:
+        with conn:
+            for ch in chapters:
+                ch_id = str(ch.get("chapter_id") or ch.get("id") or "")
+                ch_num = float(ch.get("chapter_number") or 0)
+                if ch_id:
+                    conn.execute(
+                        """
+                        INSERT OR IGNORE INTO read_chapters (manga_id, chapter_id, chapter_number, read_at)
+                        VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+                        """,
+                        (manga_id, ch_id, ch_num),
+                    )
+                    count += 1
+        return count
+    finally:
+        conn.close()
+
+
+def get_read_chapters(
+    manga_id: str, db_path: Optional[str] = None
+) -> List[Dict[str, Any]]:
+    """Retrieve all read chapters for a given manga ID."""
+    conn = get_connection(db_path)
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT chapter_id, chapter_number, read_at FROM read_chapters WHERE manga_id = ? ORDER BY chapter_number ASC",
+            (manga_id,),
+        )
+        return [dict(r) for r in cur.fetchall()]
     finally:
         conn.close()
 

@@ -37,6 +37,37 @@ def test_api_history_flow(client):
     assert len(after_res.json()) == 1
     assert after_res.json()[0]["manga_title"] == "Test Comic"
 
+    # Verify read chapters endpoint
+    ch_res = client.get("/api/history/test-manga/chapters")
+    assert ch_res.status_code == 200
+    assert len(ch_res.json()["read_chapters"]) == 1
+    assert ch_res.json()["read_chapters"][0]["chapter_id"] == "ch-1"
+
+    # Mark single chapter read
+    mark_res = client.post(
+        "/api/history/mark-read",
+        json={"manga_id": "test-manga", "chapter_id": "ch-2", "chapter_number": 2.0, "is_read": True},
+    )
+    assert mark_res.status_code == 200
+
+    # Mark all chapters read
+    all_res = client.post(
+        "/api/history/mark-all-read",
+        json={
+            "manga_id": "test-manga",
+            "chapters": [
+                {"chapter_id": "ch-3", "chapter_number": 3.0},
+                {"chapter_id": "ch-4", "chapter_number": 4.0},
+            ],
+        },
+    )
+    assert all_res.status_code == 200
+    assert all_res.json()["count"] == 2
+
+    # Check updated read chapters
+    ch_res2 = client.get("/api/history/test-manga/chapters")
+    assert len(ch_res2.json()["read_chapters"]) == 4
+
 def test_api_watchlist_toggle(client):
     payload = {
         "manga_id": "wl-manga",

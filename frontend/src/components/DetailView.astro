@@ -70,6 +70,23 @@
         </button>
       </div>
     </div>
+
+    <!-- Reading Progress Summary & Mark All Actions -->
+    <div id="detail-progress-bar-wrap" class="detail-progress-bar-wrap">
+      <div class="detail-progress-info">
+        <span id="detail-progress-text" class="detail-progress-text">Progres: 0 dibaca</span>
+        <span id="detail-progress-unread" class="detail-progress-unread">0 belum dibaca</span>
+      </div>
+      <div class="detail-progress-actions">
+        <button type="button" id="detail-mark-all-btn" class="btn btn-secondary btn-mark-all" title="Tandai semua chapter sudah dibaca">
+          <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          <span>Tandai Semua Dibaca</span>
+        </button>
+      </div>
+    </div>
+
     <div id="chapter-list" class="chapter-list" role="list">
       <slot />
     </div>

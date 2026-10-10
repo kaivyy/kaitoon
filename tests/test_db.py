@@ -102,3 +102,33 @@ def test_edge_cases(temp_db):
     assert len(wl) == 1
     assert wl[0]["latest_chapter_number"] == 2.0
     assert wl[0]["has_new_update"] == 0
+
+
+def test_read_chapters_tracking(temp_db):
+    from kaitoon.db import mark_chapter_read, mark_all_chapters_read, get_read_chapters
+
+    # Mark single chapter read
+    mark_chapter_read("manga-rc", "ch-1", 1.0, is_read=True, db_path=temp_db)
+    read_items = get_read_chapters("manga-rc", db_path=temp_db)
+    assert len(read_items) == 1
+    assert read_items[0]["chapter_id"] == "ch-1"
+    assert read_items[0]["chapter_number"] == 1.0
+
+    # Mark all chapters read
+    batch = [
+        {"chapter_id": "ch-2", "chapter_number": 2.0},
+        {"chapter_id": "ch-3", "chapter_number": 3.0},
+    ]
+    count = mark_all_chapters_read("manga-rc", batch, db_path=temp_db)
+    assert count == 2
+    read_items2 = get_read_chapters("manga-rc", db_path=temp_db)
+    assert len(read_items2) == 3
+
+    # Unmark chapter read
+    mark_chapter_read("manga-rc", "ch-2", 2.0, is_read=False, db_path=temp_db)
+    read_items3 = get_read_chapters("manga-rc", db_path=temp_db)
+    assert len(read_items3) == 2
+    ch_ids = [r["chapter_id"] for r in read_items3]
+    assert "ch-2" not in ch_ids
+    assert "ch-1" in ch_ids
+    assert "ch-3" in ch_ids

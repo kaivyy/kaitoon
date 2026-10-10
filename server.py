@@ -42,6 +42,9 @@ from kaitoon.db import (
     create_download,
     update_download_status,
     get_download,
+    mark_chapter_read,
+    mark_all_chapters_read,
+    get_read_chapters,
 )
 from kaitoon.downloader import package_chapter_cbz
 
@@ -79,6 +82,23 @@ class DownloadRequestPayload(BaseModel):
     chapter_number: Optional[float] = None
     total_pages: Optional[int] = 0
     server: Optional[str] = "shinigami"
+
+
+class MarkReadPayload(BaseModel):
+    manga_id: str
+    chapter_id: str
+    chapter_number: float
+    is_read: bool = True
+
+
+class ChapterSimpleItem(BaseModel):
+    chapter_id: str
+    chapter_number: float
+
+
+class MarkAllReadPayload(BaseModel):
+    manga_id: str
+    chapters: List[ChapterSimpleItem]
 
 
 def check_watchlist_updates(
@@ -461,8 +481,9 @@ def get_reading_history(limit: int = Query(50, ge=1, le=200)):
 @app.post("/api/history")
 def save_reading_history(payload: HistoryPayload):
     """Records or updates reading history position for a manga."""
+    canonical_id = resolve_manga_identifier(payload.manga_id)
     upsert_history(
-        manga_id=payload.manga_id,
+        manga_id=canonical_id,
         title=payload.manga_title,
         cover_url=payload.cover_url,
         ch_id=payload.chapter_id,
@@ -471,6 +492,48 @@ def save_reading_history(payload: HistoryPayload):
         db_path=DEFAULT_DB_PATH,
     )
     return {"status": "ok"}
+
+
+@app.get("/api/history/{manga_id}/chapters")
+def get_manga_read_chapters_endpoint(manga_id: str):
+    """Retrieves all read chapters for a specific manga."""
+    canonical_id = resolve_manga_identifier(manga_id)
+    items = get_read_chapters(manga_id=canonical_id, db_path=DEFAULT_DB_PATH)
+    if canonical_id != manga_id:
+        extra_items = get_read_chapters(manga_id=manga_id, db_path=DEFAULT_DB_PATH)
+        seen_ids = {r["chapter_id"] for r in items}
+        for r in extra_items:
+            if r["chapter_id"] not in seen_ids:
+                items.append(r)
+        items.sort(key=lambda x: x["chapter_number"])
+    return {"manga_id": canonical_id, "read_chapters": items}
+
+
+@app.post("/api/history/mark-read")
+def mark_read_endpoint(payload: MarkReadPayload):
+    """Marks or unmarks a specific chapter as read."""
+    canonical_id = resolve_manga_identifier(payload.manga_id)
+    mark_chapter_read(
+        manga_id=canonical_id,
+        chapter_id=payload.chapter_id,
+        chapter_number=payload.chapter_number,
+        is_read=payload.is_read,
+        db_path=DEFAULT_DB_PATH,
+    )
+    return {"status": "ok", "manga_id": canonical_id, "chapter_id": payload.chapter_id, "is_read": payload.is_read}
+
+
+@app.post("/api/history/mark-all-read")
+def mark_all_read_endpoint(payload: MarkAllReadPayload):
+    """Marks a list of chapters as read for a manga."""
+    canonical_id = resolve_manga_identifier(payload.manga_id)
+    raw_list = [ch.model_dump() for ch in payload.chapters]
+    count = mark_all_chapters_read(
+        manga_id=canonical_id,
+        chapters=raw_list,
+        db_path=DEFAULT_DB_PATH,
+    )
+    return {"status": "ok", "manga_id": canonical_id, "count": count}
 
 
 @app.get("/api/watchlist")
