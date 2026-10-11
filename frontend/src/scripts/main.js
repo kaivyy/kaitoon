@@ -1690,9 +1690,15 @@ import { createReaderController } from './reader.js';
     };
   }
 
-  if (DOM.webtoonContainer) {
+  if (DOM.readerContainer) {
+    DOM.readerContainer.onclick = (e) => {
+      if (state.readMode !== 'webtoon') return;
+      if (e.target.closest('.chapter-end-card') || e.target.closest('button') || e.target.closest('a') || e.target.closest('.reader-floating-bar') || e.target.closest('#autoscroll-modal')) return;
+      readerController.toggleReaderControls();
+    };
+  } else if (DOM.webtoonContainer) {
     DOM.webtoonContainer.onclick = (e) => {
-      if (e.target.closest('.chapter-end-card') || e.target.closest('button')) return;
+      if (e.target.closest('.chapter-end-card') || e.target.closest('button') || e.target.closest('a')) return;
       readerController.toggleReaderControls();
     };
   }
@@ -1711,10 +1717,12 @@ import { createReaderController } from './reader.js';
 
     if (Math.abs(currentScrollPos - lastScrollPos) < 20) return;
 
-    if (currentScrollPos > lastScrollPos && currentScrollPos > 100) {
-      readerController.showReaderControls(false);
-    } else {
-      readerController.showReaderControls(true);
+    // Sembunyikan floating bar dan navbar saat scroll ke bawah
+    // Tetap hidden saat scroll ke atas, kontrol hanya muncul jika diklik 1x
+    if (currentScrollPos > lastScrollPos && currentScrollPos > 60) {
+      if (state.isControllerVisible) {
+        readerController.showReaderControls(false);
+      }
     }
     lastScrollPos = currentScrollPos;
   }
