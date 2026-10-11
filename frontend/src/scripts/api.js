@@ -26,14 +26,14 @@ export function formatRelativeTime(dateStr) {
     const diffSec = Math.floor((now.getTime() - date.getTime()) / 1000);
     if (diffSec < 60) return 'Baru saja';
     const diffMin = Math.floor(diffSec / 60);
-    if (diffMin < 60) return `${diffMin} mnt lalu`;
+    if (diffMin < 60) return `${diffMin} menit lalu`;
     const diffHour = Math.floor(diffMin / 60);
     if (diffHour < 24) return `${diffHour} jam lalu`;
     const diffDay = Math.floor(diffHour / 24);
     if (diffDay === 1) return 'Kemarin';
     if (diffDay < 7) return `${diffDay} hari lalu`;
     const diffWeek = Math.floor(diffDay / 7);
-    if (diffWeek < 4) return `${diffWeek} mgg lalu`;
+    if (diffWeek < 4) return `${diffWeek} minggu lalu`;
     return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
   } catch {
     return '';

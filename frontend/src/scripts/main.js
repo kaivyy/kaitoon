@@ -704,11 +704,13 @@ import { createReaderController } from './reader.js';
       const hist = (state.historyList || []).find(h => h.manga_id === item.manga_id);
       const lastReadNum = item.last_chapter_number || (hist && hist.last_chapter_number);
 
+      const rawChapterTime = item.latest_chapter_time || item.latest_chapter_date || item.chapter_date || item.release_date;
       let timeText = 'Terbaru';
-      if (item.release_time) {
-        timeText = item.release_time;
-      } else if (item.latest_chapter_date) {
-        timeText = formatRelativeTime(item.latest_chapter_date) || 'Terbaru';
+      if (rawChapterTime) {
+        timeText = formatRelativeTime(rawChapterTime) || 'Terbaru';
+      } else if (item.release_time) {
+        const timeMatch = String(item.release_time).match(/(\d+\s*(?:detik|menit|mnt|jam|hari|minggu|mgg|bulan|tahun)\s*lalu)/i);
+        timeText = timeMatch ? timeMatch[1].trim() : String(item.release_time).trim();
       } else if (item.updated_at) {
         timeText = formatRelativeTime(item.updated_at) || 'Terbaru';
       }
