@@ -6,6 +6,20 @@ Format berkas ini mengacu pada panduan [Keep a Changelog](https://keepachangelog
 
 ---
 
+## [2.1.1] - 2026-10-14
+
+### Diperbaiki
+- **Preservasi Halaman dan Scroll Katalog**:
+  - Mengatasi bug saat navigasi kembali dari detail komik atau reader yang mereset halaman katalog ke halaman 1.
+  - URL hash kini mendukung rute paginasi `#/latest/page/{num}` dan query `?page={num}`.
+  - Posisi scroll katalog disimpan otomatis dan dikembalikan secara instan saat kembali tanpa memuat ulang data atau layar berkedip.
+- **Auto-Hide Bar Reader saat Scroll ke Atas**:
+  - Memastikan floating navbar dan bar controller di reader tetap tersembunyi saat menggulir ke atas hingga layar diklik atau disentuh 1 kali.
+- **Kalkulasi Waktu Rilis Chapter di Beranda**:
+  - Memprioritaskan `latest_chapter_time` daripada `updated_at` agar badge waktu rilis chapter di beranda sinkron dengan waktu chapter terbaru di halaman detail.
+
+---
+
 ## [2.1.0] - 2026-10-11
 
 ### Ditambahkan
