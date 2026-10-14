@@ -73,7 +73,7 @@ export async function handleRoute({ onReader, onManga, onTab }) {
     // Route: #/favorites
     if (parts[0] === 'favorites') {
       if (onTab) {
-        onTab('favorites');
+        await onTab('favorites', 1);
       }
       return;
     }
@@ -81,14 +81,35 @@ export async function handleRoute({ onReader, onManga, onTab }) {
     // Route: #/history
     if (parts[0] === 'history') {
       if (onTab) {
-        onTab('history');
+        await onTab('history', 1);
       }
       return;
     }
 
-    // Default Route: #/latest
+    // Route: #/latest, #/latest/page/{num}, #/latest/{num}, #/page/{num}
+    let catalogPage = 1;
+    if (parts[0] === 'latest') {
+      if (parts[1] === 'page' && parts[2]) {
+        const p = parseInt(parts[2], 10);
+        if (!isNaN(p) && p >= 1) catalogPage = p;
+      } else if (parts[1]) {
+        const p = parseInt(parts[1], 10);
+        if (!isNaN(p) && p >= 1) catalogPage = p;
+      }
+    } else if (parts[0] === 'page' && parts[1]) {
+      const p = parseInt(parts[1], 10);
+      if (!isNaN(p) && p >= 1) catalogPage = p;
+    }
+
+    const pageMatch = rawHash.match(/[?&]page=(\d+)/);
+    if (pageMatch && pageMatch[1]) {
+      const p = parseInt(pageMatch[1], 10);
+      if (!isNaN(p) && p >= 1) catalogPage = p;
+    }
+
+    // Default Route: #/latest with catalogPage
     if (onTab) {
-      onTab('latest');
+      await onTab('latest', catalogPage);
     }
   } finally {
     isHandlingRoute = false;

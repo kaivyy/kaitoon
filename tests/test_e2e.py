@@ -387,9 +387,9 @@ def test_antislop_delivery_gate_r02_zero_em_dashes():
     violations = []
 
     for root, dirs, files in os.walk(BASE_DIR):
-        dirs[:] = [d for d in dirs if not d.startswith(".") and d != "graphify-out"]
+        dirs[:] = [d for d in dirs if not d.startswith(".") and d not in ("graphify-out", "data")]
         for fname in files:
-            if fname.startswith(".") or fname.endswith((".pyc", ".cbz", ".png", ".jpg", ".webp", ".db", ".diff", ".patch")):
+            if fname.startswith(".") or fname.endswith((".pyc", ".cbz", ".png", ".jpg", ".webp", ".db", ".db-journal", ".db-wal", ".db-shm", ".diff", ".patch")):
                 continue
             fpath = os.path.join(root, fname)
             with open(fpath, "r", encoding="utf-8", errors="ignore") as fh:

@@ -28,6 +28,7 @@ import { createReaderController } from './reader.js';
     catalogPage: 1,
     catalogTotalPages: null,
     catalogHasNext: true,
+    catalogScrollY: 0,
     favoritesList: [],
     historyList: [],
     activeHistoryItem: null,
@@ -375,6 +376,14 @@ import { createReaderController } from './reader.js';
 
   // View Navigation
   function switchView(viewName) {
+    if (state.currentView === 'catalog' && (viewName === 'detail' || viewName === 'reader')) {
+      state.catalogScrollY = window.scrollY || document.documentElement.scrollTop || 0;
+      state.lastScrollY = state.catalogScrollY;
+      try {
+        sessionStorage.setItem('kaitoon_catalog_scroll_y', String(state.catalogScrollY));
+      } catch {}
+    }
+
     state.currentView = viewName;
     document.documentElement.classList.remove('route-reader-initial', 'route-detail-initial');
     hideError();
@@ -391,9 +400,14 @@ import { createReaderController } from './reader.js';
       DOM.readerView.hidden = true;
       DOM.appHeader.hidden = false;
       if (DOM.mobileBottomNav) DOM.mobileBottomNav.hidden = false;
-      window.scrollTo(0, state.lastScrollY || 0);
-    }
- else if (viewName === 'detail') {
+      let targetScroll = state.catalogScrollY || state.lastScrollY || 0;
+      if (!targetScroll) {
+        try {
+          targetScroll = parseInt(sessionStorage.getItem('kaitoon_catalog_scroll_y') || '0', 10) || 0;
+        } catch {}
+      }
+      window.scrollTo({ top: targetScroll, behavior: 'instant' });
+    } else if (viewName === 'detail') {
       DOM.catalogView.hidden = true;
       DOM.detailView.hidden = false;
       DOM.readerView.hidden = true;
@@ -401,7 +415,6 @@ import { createReaderController } from './reader.js';
       if (DOM.mobileBottomNav) DOM.mobileBottomNav.hidden = false;
       window.scrollTo(0, 0);
     } else if (viewName === 'reader') {
-      state.lastScrollY = window.scrollY;
       DOM.catalogView.hidden = true;
       DOM.detailView.hidden = true;
       DOM.readerView.hidden = false;
@@ -440,9 +453,20 @@ import { createReaderController } from './reader.js';
   }
 
   // Smooth Catalog Return without Blank Screen
-  function returnToCatalog(targetTab = 'latest') {
+  function returnToCatalog(targetTab = null) {
     const tabKey = targetTab || state.activeTab || 'latest';
     state.activeTab = tabKey;
+    let targetPage = (tabKey === 'latest' ? state.catalogPage : 1);
+    if (tabKey === 'latest' && (!targetPage || targetPage < 1)) {
+      try {
+        targetPage = parseInt(sessionStorage.getItem('kaitoon_catalog_page') || '1', 10) || 1;
+      } catch {
+        targetPage = 1;
+      }
+      state.catalogPage = targetPage;
+    }
+
+    const routeStr = (tabKey === 'latest' && targetPage > 1) ? `latest/page/${targetPage}` : tabKey;
 
     if (DOM.comicGrid && DOM.comicGrid.children.length > 0 && (state.renderedTab === tabKey || tabKey === 'latest')) {
       switchView('catalog');
@@ -450,19 +474,31 @@ import { createReaderController } from './reader.js';
       if (DOM.serverSwitcherBar) {
         DOM.serverSwitcherBar.hidden = (tabKey !== 'latest');
       }
-      setRoute(tabKey);
-      window.scrollTo(0, state.lastScrollY || 0);
+      setRoute(routeStr);
+      let restoreY = state.catalogScrollY || 0;
+      if (!restoreY) {
+        try {
+          restoreY = parseInt(sessionStorage.getItem('kaitoon_catalog_scroll_y') || '0', 10) || 0;
+        } catch {}
+      }
+      window.scrollTo({ top: restoreY, behavior: 'instant' });
       return;
     }
 
-    switchTab(tabKey, true);
+    switchTab(tabKey, true, targetPage);
   }
 
   // Tab Navigation
-  function switchTab(tabKey, updateHash = true) {
+  function switchTab(tabKey, updateHash = true, page = 1) {
     state.activeTab = tabKey;
-    state.catalogPage = 1;
+    const targetPage = (tabKey === 'latest') ? (parseInt(page, 10) || 1) : 1;
+    state.catalogPage = targetPage;
     state.lastScrollY = 0;
+    state.catalogScrollY = 0;
+    try {
+      sessionStorage.removeItem('kaitoon_catalog_scroll_y');
+      sessionStorage.setItem('kaitoon_catalog_page', String(targetPage));
+    } catch {}
     if (DOM.searchInput) DOM.searchInput.value = '';
     if (DOM.searchClearBtn) DOM.searchClearBtn.hidden = true;
 
@@ -473,7 +509,7 @@ import { createReaderController } from './reader.js';
     }
 
     if (tabKey === 'latest') {
-      loadLatestComics(1);
+      loadLatestComics(targetPage, false);
     } else if (tabKey === 'favorites') {
       loadFavorites();
     } else if (tabKey === 'history') {
@@ -481,7 +517,68 @@ import { createReaderController } from './reader.js';
     }
     switchView('catalog');
     if (updateHash) {
-      setRoute(tabKey);
+      const routeStr = (tabKey === 'latest' && targetPage > 1) ? `latest/page/${targetPage}` : tabKey;
+      setRoute(routeStr);
+    }
+  }
+
+  // Route Handler for Tab and Catalog Navigation
+  function handleTabRoute(tabKey, pageNum = 1) {
+    const targetPage = (tabKey === 'latest') ? (parseInt(pageNum, 10) || 1) : 1;
+
+    if (tabKey === 'latest') {
+      state.activeTab = 'latest';
+      if (state.currentView !== 'catalog' && state.renderedTab === 'latest' && state.catalogPage === targetPage && DOM.comicGrid && DOM.comicGrid.children.length > 0) {
+        switchView('catalog');
+        updateTabButtonsUI('latest');
+        if (DOM.serverSwitcherBar) DOM.serverSwitcherBar.hidden = false;
+        let restoreY = state.catalogScrollY || 0;
+        if (!restoreY) {
+          try {
+            restoreY = parseInt(sessionStorage.getItem('kaitoon_catalog_scroll_y') || '0', 10) || 0;
+          } catch {}
+        }
+        window.scrollTo({ top: restoreY, behavior: 'instant' });
+        return;
+      }
+
+      if (state.catalogPage !== targetPage || state.renderedTab !== 'latest' || !DOM.comicGrid || DOM.comicGrid.children.length === 0) {
+        state.catalogPage = targetPage;
+        updateTabButtonsUI('latest');
+        switchView('catalog');
+        loadLatestComics(targetPage, false);
+      } else {
+        switchView('catalog');
+        updateTabButtonsUI('latest');
+        if (DOM.serverSwitcherBar) DOM.serverSwitcherBar.hidden = false;
+      }
+      return;
+    }
+
+    if (tabKey === 'favorites') {
+      state.activeTab = 'favorites';
+      if (state.currentView !== 'catalog' && state.renderedTab === 'favorites' && DOM.comicGrid && DOM.comicGrid.children.length > 0) {
+        switchView('catalog');
+        updateTabButtonsUI('favorites');
+        if (DOM.serverSwitcherBar) DOM.serverSwitcherBar.hidden = true;
+        window.scrollTo({ top: state.catalogScrollY || 0, behavior: 'instant' });
+        return;
+      }
+      switchTab('favorites', false);
+      return;
+    }
+
+    if (tabKey === 'history') {
+      state.activeTab = 'history';
+      if (state.currentView !== 'catalog' && state.renderedTab === 'history' && DOM.comicGrid && DOM.comicGrid.children.length > 0) {
+        switchView('catalog');
+        updateTabButtonsUI('history');
+        if (DOM.serverSwitcherBar) DOM.serverSwitcherBar.hidden = true;
+        window.scrollTo({ top: state.catalogScrollY || 0, behavior: 'instant' });
+        return;
+      }
+      switchTab('history', false);
+      return;
     }
   }
 
@@ -502,6 +599,11 @@ import { createReaderController } from './reader.js';
     updateServerSwitcherUI();
     showToast(newServer === 'komiku' ? 'Server beralih ke Server 2 (Komiku)' : 'Server beralih ke Server 1 (Shinigami)');
     state.catalogPage = 1;
+    state.catalogScrollY = 0;
+    try {
+      sessionStorage.setItem('kaitoon_catalog_page', '1');
+      sessionStorage.removeItem('kaitoon_catalog_scroll_y');
+    } catch {}
 
     // Immediately restore cached catalog for target server if available
     if (state.currentView === 'catalog' && (!DOM.searchInput || !DOM.searchInput.value.trim())) {
@@ -521,13 +623,13 @@ import { createReaderController } from './reader.js';
       if (DOM.searchInput && DOM.searchInput.value.trim()) {
         performSearch(DOM.searchInput.value.trim());
       } else {
-        loadLatestComics(1);
+        loadLatestComics(1, true);
       }
     }
   }
 
   // Load Latest Comics
-  async function loadLatestComics(page = 1) {
+  async function loadLatestComics(page = 1, updateRoute = true) {
     if (DOM.serverSwitcherBar) {
       DOM.serverSwitcherBar.hidden = !DOM.comicGrid || DOM.comicGrid.children.length === 0;
     }
@@ -568,11 +670,15 @@ import { createReaderController } from './reader.js';
         DOM.comicGrid.innerHTML = '';
         if (DOM.paginationControls) DOM.paginationControls.hidden = true;
         if (DOM.serverSwitcherBar) DOM.serverSwitcherBar.hidden = true;
-        showEmpty('Tidak Ada Komik', 'Belum ada komik terbaru dari server ini.', 'Muat Ulang', () => loadLatestComics(1));
+        showEmpty('Tidak Ada Komik', 'Belum ada komik terbaru dari server ini.', 'Muat Ulang', () => loadLatestComics(1, true));
         return;
       }
 
       state.catalogPage = page;
+      try {
+        sessionStorage.setItem('kaitoon_catalog_page', String(page));
+      } catch {}
+
       if (result && result.meta && result.meta.total_page) {
         state.catalogTotalPages = Number(result.meta.total_page);
       } else {
@@ -589,12 +695,27 @@ import { createReaderController } from './reader.js';
       setupPagination();
       if (DOM.serverSwitcherBar) DOM.serverSwitcherBar.hidden = false;
       state.renderedTab = 'latest';
-      if (page > 1) {
+
+      if (updateRoute && state.activeTab === 'latest') {
+        const routeStr = page > 1 ? `latest/page/${page}` : 'latest';
+        setRoute(routeStr);
+      }
+
+      let restoreY = state.catalogScrollY || 0;
+      if (!restoreY) {
+        try {
+          restoreY = parseInt(sessionStorage.getItem('kaitoon_catalog_scroll_y') || '0', 10) || 0;
+        } catch {}
+      }
+
+      if (restoreY > 0) {
+        window.scrollTo({ top: restoreY, behavior: 'instant' });
+      } else if (page > 1) {
         window.scrollTo({ top: 0, behavior: 'instant' });
       }
     } catch (err) {
       showLoading(false);
-      showError(`Gagal memuat komik terbaru: ${err.message}`, () => loadLatestComics(page));
+      showError(`Gagal memuat komik terbaru: ${err.message}`, () => loadLatestComics(page, updateRoute));
     }
   }
 
@@ -840,7 +961,9 @@ import { createReaderController } from './reader.js';
       DOM.prevPageBtn.disabled = currentPage <= 1;
       DOM.prevPageBtn.onclick = () => {
         if (currentPage > 1) {
-          loadLatestComics(currentPage - 1);
+          state.catalogScrollY = 0;
+          try { sessionStorage.removeItem('kaitoon_catalog_scroll_y'); } catch {}
+          loadLatestComics(currentPage - 1, true);
         }
       };
     }
@@ -849,7 +972,9 @@ import { createReaderController } from './reader.js';
       DOM.nextPageBtn.disabled = !hasNext;
       DOM.nextPageBtn.onclick = () => {
         if (hasNext) {
-          loadLatestComics(currentPage + 1);
+          state.catalogScrollY = 0;
+          try { sessionStorage.removeItem('kaitoon_catalog_scroll_y'); } catch {}
+          loadLatestComics(currentPage + 1, true);
         }
       };
     }
@@ -937,7 +1062,9 @@ import { createReaderController } from './reader.js';
       if (btn) {
         const pageNum = parseInt(btn.getAttribute('data-page'), 10);
         if (pageNum && pageNum !== state.catalogPage && pageNum >= 1) {
-          loadLatestComics(pageNum);
+          state.catalogScrollY = 0;
+          try { sessionStorage.removeItem('kaitoon_catalog_scroll_y'); } catch {}
+          loadLatestComics(pageNum, true);
         }
       }
     });
@@ -2064,13 +2191,12 @@ import { createReaderController } from './reader.js';
 
   if (DOM.brandLogo) {
     DOM.brandLogo.onclick = () => {
-      returnToCatalog('latest');
+      switchTab('latest', true, 1);
     };
     DOM.brandLogo.onkeydown = (e) => {
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
-        setRoute('latest');
-        switchTab('latest', false);
+        switchTab('latest', true, 1);
       }
     };
   }
@@ -2101,10 +2227,10 @@ import { createReaderController } from './reader.js';
   }
 
   // Tabs Click Handlers
-  if (DOM.tabLatest) DOM.tabLatest.onclick = () => switchTab('latest');
+  if (DOM.tabLatest) DOM.tabLatest.onclick = () => switchTab('latest', true, 1);
   if (DOM.tabFavorites) DOM.tabFavorites.onclick = () => switchTab('favorites');
   if (DOM.tabHistory) DOM.tabHistory.onclick = () => switchTab('history');
-  if (DOM.mobileTabLatest) DOM.mobileTabLatest.onclick = () => switchTab('latest');
+  if (DOM.mobileTabLatest) DOM.mobileTabLatest.onclick = () => switchTab('latest', true, 1);
   if (DOM.mobileTabFavorites) DOM.mobileTabFavorites.onclick = () => switchTab('favorites');
   if (DOM.mobileTabHistory) DOM.mobileTabHistory.onclick = () => switchTab('history');
 
@@ -2247,7 +2373,7 @@ import { createReaderController } from './reader.js';
     handleRoute({
       onReader: (mangaId, chapterId, chapterNumber) => openReader(mangaId, chapterId, chapterNumber, state.readMode, false),
       onManga: (mangaId) => openMangaDetail(mangaId, false),
-      onTab: (tabKey) => switchTab(tabKey, false)
+      onTab: (tabKey, pageNum) => handleTabRoute(tabKey, pageNum)
     });
   });
 
@@ -2323,6 +2449,6 @@ import { createReaderController } from './reader.js';
   handleRoute({
     onReader: (mangaId, chapterId, chapterNumber) => openReader(mangaId, chapterId, chapterNumber, state.readMode, false),
     onManga: (mangaId) => openMangaDetail(mangaId, false),
-    onTab: (tabKey) => switchTab(tabKey, false)
+    onTab: (tabKey, pageNum) => handleTabRoute(tabKey, pageNum)
   });
 })();

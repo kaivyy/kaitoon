@@ -168,3 +168,32 @@ def test_javascript_logic_integrity():
     assert "Escape" in content
     assert "ArrowRight" in content
     assert "ArrowLeft" in content
+
+
+def test_catalog_pagination_and_route_persistence():
+    """Verifies that router and client scripts support catalog page persistence and pagination routes."""
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if os.path.exists(os.path.join(base_dir, "kaitoon", "frontend")):
+        frontend_dir = os.path.join(base_dir, "kaitoon", "frontend")
+    else:
+        frontend_dir = os.path.join(base_dir, "frontend")
+
+    router_path = os.path.join(frontend_dir, "src", "scripts", "router.js")
+    with open(router_path, "r", encoding="utf-8") as f:
+        router_content = f.read()
+
+    # Route parsing for latest catalog pagination
+    assert "parts[0] === 'latest'" in router_content
+    assert "catalogPage = p" in router_content
+    assert "onTab('latest', catalogPage)" in router_content
+
+    main_path = os.path.join(frontend_dir, "src", "scripts", "main.js")
+    with open(main_path, "r", encoding="utf-8") as f:
+        main_content = f.read()
+
+    # Catalog state and return without refreshing to page 1
+    assert "catalogScrollY" in main_content
+    assert "handleTabRoute" in main_content
+    assert "sessionStorage.setItem('kaitoon_catalog_page'" in main_content
+    assert "latest/page/" in main_content
+
