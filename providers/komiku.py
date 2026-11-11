@@ -430,14 +430,47 @@ class KomikuClient:
 
     def _parse_chapter_pages_html(self, html: str) -> List[str]:
         """Extracts direct WebP image URLs from chapter HTML."""
-        imgs = re.findall(r'<img[^>]*src=[\'"](https?://image\d*\.komiku\.to/[^\'"]+)[\'"]', html)
-        # Filter out promotional banners and watermarks
-        valid_pages = [
-            img for img in imgs
-            if "promosi" not in img.lower()
-            and "promo" not in img.lower()
-            and "iklan" not in img.lower()
-        ]
+        if not html:
+            return []
+
+        # Strategy 1: Check Baca_Komik container which holds the reader pages
+        baca_match = re.search(r'<div[^>]*id=[\'"]Baca_Komik[\'"][^>]*>(.*?)</div>\s*</div>', html, re.DOTALL | re.IGNORECASE)
+        if not baca_match:
+            baca_match = re.search(r'<div[^>]*id=[\'"]Baca_Komik[\'"][^>]*>(.*?)(?:<div class=[\'"](?:footer|komentar|navigation|nextprev)|<footer)', html, re.DOTALL | re.IGNORECASE)
+
+        target_html = baca_match.group(1) if baca_match else html
+
+        # Extract all image candidate URLs from src, data-src, or data-lazy-src
+        raw_urls = re.findall(r'<img[^>]+(?:src|data-src|data-lazy-src)=[\'"]([^\'"]+)[\'"]', target_html, re.IGNORECASE)
+
+        valid_pages = []
+        seen = set()
+        for u in raw_urls:
+            u_clean = u.strip()
+            if not (u_clean.startswith("http://") or u_clean.startswith("https://")):
+                continue
+            u_lower = u_clean.lower()
+            if any(ign in u_lower for ign in ["promosi", "promo", "iklan", "avatar", "logo", "banner", "google", "asset", "gravatar"]):
+                continue
+            # If inside Baca_Komik container, all non-promotional images are pages
+            if baca_match or any(k in u_lower for k in ["komiku", "upload", "cdn", "chapter"]):
+                if u_clean not in seen:
+                    seen.add(u_clean)
+                    valid_pages.append(u_clean)
+
+        # Strategy 2 fallback: regex matching Komiku image CDNs across whole HTML
+        if not valid_pages:
+            fallback_imgs = re.findall(
+                r'<img[^>]*src=[\'"](https?://(?:img|image\d*|cdn)\.komiku\.(?:org|to|id)/[^\'"]+)[\'"]',
+                html,
+                re.IGNORECASE,
+            )
+            for img in fallback_imgs:
+                img_lower = img.lower()
+                if not any(ign in img_lower for ign in ["promosi", "promo", "iklan", "banner", "logo"]) and img not in seen:
+                    seen.add(img)
+                    valid_pages.append(img)
+
         return valid_pages
 
     # SQLite Persistence Helpers

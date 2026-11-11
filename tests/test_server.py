@@ -309,6 +309,51 @@ def test_api_chapter_pages_komiku_server(client):
         assert len(res.json()["pages"]) == 2
 
 
+def test_komiku_parse_chapter_pages_html_baca_komik_container():
+    """Verifies that Komiku parser extracts img.komiku.org URLs from Baca_Komik container."""
+    from kaitoon.providers.komiku import KomikuClient
+
+    kc = KomikuClient()
+    sample_html = """
+    <!DOCTYPE html>
+    <html>
+    <body>
+      <div id="Baca_Komik">
+        <h2 class="judulbaca">Baca Online</h2>
+        <img src="https://img.komiku.org/komiku-promosi.webp">
+        <img src="https://img.komiku.org/upload5/the-crimson-dragon/3/2026-09-25/1.webp" alt="p1">
+        <img src="https://img.komiku.org/upload5/the-crimson-dragon/3/2026-09-25/2.webp" alt="p2">
+        <img src="/asset/img/iklan.png">
+      </div>
+    </body>
+    </html>
+    """
+    pages = kc._parse_chapter_pages_html(sample_html)
+    assert len(pages) == 2
+    assert pages[0] == "https://img.komiku.org/upload5/the-crimson-dragon/3/2026-09-25/1.webp"
+    assert pages[1] == "https://img.komiku.org/upload5/the-crimson-dragon/3/2026-09-25/2.webp"
+
+
+def test_api_manga_detail_shinigami_priority_with_slug(client):
+    """Verifies that server=shinigami requests use Shinigami client even when slug exists in Komiku cache."""
+    mock_shini_detail = {
+        "data": {
+            "manga_id": "dbc0c89d-060e-47ca-ac80-a2fe32567009",
+            "title": "The Crimson Dragon Martial Emperor",
+            "chapters": [{"chapter_id": "1037a241-e85d-43d2-bd6c-a74f5ee3987a", "chapter_number": 3}],
+        }
+    }
+    with patch("kaitoon.server.resolve_manga_identifier", return_value="dbc0c89d-060e-47ca-ac80-a2fe32567009"), \
+         patch("kaitoon.server.client.get_manga_detail", return_value=mock_shini_detail), \
+         patch("kaitoon.server.client.get_all_chapters", return_value={"data": [{"chapter_id": "1037a241-e85d-43d2-bd6c-a74f5ee3987a", "chapter_number": 3}]}), \
+         patch("kaitoon.server.komiku_client._get_cached_manga_detail", return_value={"title": "Cached Komiku"}):
+        res = client.get("/api/manga/the-crimson-dragon-martial-emperor?server=shinigami")
+        assert res.status_code == 200
+        # Must return Shinigami detail, not the cached Komiku detail
+        assert res.json()["data"]["manga_id"] == "dbc0c89d-060e-47ca-ac80-a2fe32567009"
+        assert res.json()["data"]["chapters"][0]["chapter_id"] == "1037a241-e85d-43d2-bd6c-a74f5ee3987a"
+
+
 @pytest.mark.anyio
 async def test_auto_sync_komiku_task_cycle():
     import asyncio

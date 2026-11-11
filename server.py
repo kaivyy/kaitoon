@@ -396,44 +396,79 @@ def get_manga_endpoint(
     server: Optional[str] = Query(None, description="Server provider: shinigami or komiku"),
 ):
     """Retrieves full manga details along with chapter listings."""
-    is_komiku = (server and server.lower() == "komiku") or (not is_uuid_string(id) and komiku_client._get_cached_manga_detail(id))
-    if is_komiku:
+    chosen_server = server.lower() if server else None
+    if chosen_server == "komiku":
         try:
             return komiku_client.get_manga_detail(id)
         except Exception as k_err:
             logger.warning(f"Komiku detail fetch failed for {id}: {k_err}")
-            if server and server.lower() == "komiku":
-                raise HTTPException(status_code=500, detail=str(k_err))
-
-    try:
-        real_id = resolve_manga_identifier(id)
-        detail = client.get_manga_detail(real_id)
+            raise HTTPException(status_code=500, detail=str(k_err))
+    elif chosen_server == "shinigami":
         try:
-            if all_chapters and page is None and hasattr(client, "get_all_chapters"):
-                chapters = client.get_all_chapters(real_id, sort_order=sort_order)
-            else:
-                chapters = client.list_chapters(
-                    real_id, page=page or 1, page_size=page_size or 100, sort_order=sort_order
-                )
-            if isinstance(detail, dict) and "data" in detail and isinstance(detail["data"], dict):
-                detail["data"]["chapters"] = chapters.get("data", [])
-                detail["data"]["chapters_meta"] = chapters.get("meta", {})
-                title = detail["data"].get("title", "")
-                slug = slugify(title)
-                detail["data"]["slug"] = slug
-                if slug and real_id:
-                    SLUG_CACHE[slug] = real_id
-        except Exception as ch_err:
-            logger.warning(f"Failed to fetch chapters for manga {real_id}: {ch_err}")
-        return detail
-    except Exception as err:
-        if not is_uuid_string(id):
+            real_id = resolve_manga_identifier(id)
+            detail = client.get_manga_detail(real_id)
+            try:
+                if all_chapters and page is None and hasattr(client, "get_all_chapters"):
+                    chapters = client.get_all_chapters(real_id, sort_order=sort_order)
+                else:
+                    chapters = client.list_chapters(
+                        real_id, page=page or 1, page_size=page_size or 100, sort_order=sort_order
+                    )
+                if isinstance(detail, dict) and "data" in detail and isinstance(detail["data"], dict):
+                    detail["data"]["chapters"] = chapters.get("data", [])
+                    detail["data"]["chapters_meta"] = chapters.get("meta", {})
+                    title = detail["data"].get("title", "")
+                    slug = slugify(title)
+                    detail["data"]["slug"] = slug
+                    if slug and real_id:
+                        SLUG_CACHE[slug] = real_id
+            except Exception as ch_err:
+                logger.warning(f"Failed to fetch chapters for manga {real_id}: {ch_err}")
+            return detail
+        except Exception as err:
+            if not is_uuid_string(id):
+                try:
+                    return komiku_client.get_manga_detail(id)
+                except Exception:
+                    pass
+            logger.error(f"Failed to fetch manga detail for {id}: {err}")
+            raise HTTPException(status_code=500, detail=str(err))
+    else:
+        if not is_uuid_string(id) and komiku_client._get_cached_manga_detail(id):
             try:
                 return komiku_client.get_manga_detail(id)
             except Exception:
                 pass
-        logger.error(f"Failed to fetch manga detail for {id}: {err}")
-        raise HTTPException(status_code=500, detail=str(err))
+
+        try:
+            real_id = resolve_manga_identifier(id)
+            detail = client.get_manga_detail(real_id)
+            try:
+                if all_chapters and page is None and hasattr(client, "get_all_chapters"):
+                    chapters = client.get_all_chapters(real_id, sort_order=sort_order)
+                else:
+                    chapters = client.list_chapters(
+                        real_id, page=page or 1, page_size=page_size or 100, sort_order=sort_order
+                    )
+                if isinstance(detail, dict) and "data" in detail and isinstance(detail["data"], dict):
+                    detail["data"]["chapters"] = chapters.get("data", [])
+                    detail["data"]["chapters_meta"] = chapters.get("meta", {})
+                    title = detail["data"].get("title", "")
+                    slug = slugify(title)
+                    detail["data"]["slug"] = slug
+                    if slug and real_id:
+                        SLUG_CACHE[slug] = real_id
+            except Exception as ch_err:
+                logger.warning(f"Failed to fetch chapters for manga {real_id}: {ch_err}")
+            return detail
+        except Exception as err:
+            if not is_uuid_string(id):
+                try:
+                    return komiku_client.get_manga_detail(id)
+                except Exception:
+                    pass
+            logger.error(f"Failed to fetch manga detail for {id}: {err}")
+            raise HTTPException(status_code=500, detail=str(err))
 
 
 @app.get("/api/chapter/{id}/pages")
@@ -442,20 +477,26 @@ def get_chapter_pages_endpoint(
     server: Optional[str] = Query(None, description="Server provider: shinigami or komiku"),
 ):
     """Retrieves direct CDN image URLs for all pages in a chapter."""
-    is_komiku = (server and server.lower() == "komiku") or not is_uuid_string(id)
+    chosen_server = server.lower() if server else None
+    is_komiku = chosen_server == "komiku" or not is_uuid_string(id)
     if is_komiku:
         try:
             urls = komiku_client.get_chapter_image_urls(id)
-            return {
-                "chapter_id": id,
-                "pages": urls,
-                "data": urls,
-                "total": len(urls),
-                "server": "komiku",
-            }
+            if urls:
+                return {
+                    "chapter_id": id,
+                    "pages": urls,
+                    "data": urls,
+                    "total": len(urls),
+                    "server": "komiku",
+                }
+            elif chosen_server == "komiku":
+                raise HTTPException(status_code=404, detail="Tidak ada halaman gambar ditemukan untuk chapter ini.")
+        except HTTPException:
+            raise
         except Exception as k_err:
             logger.warning(f"Komiku chapter pages failed for {id}: {k_err}")
-            if server and server.lower() == "komiku":
+            if chosen_server == "komiku":
                 raise HTTPException(status_code=500, detail=str(k_err))
 
     try:
