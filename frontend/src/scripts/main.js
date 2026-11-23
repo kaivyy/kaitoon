@@ -37,7 +37,7 @@ import { createReaderController } from './reader.js';
     isAutoScrolling: false,
     autoScrollSpeed: parseFloat(localStorage.getItem('autoScrollSpeed')) || 1.0,
     activeServer: localStorage.getItem('kaitoon_server') || 'shinigami',
-    renderedTab: 'latest'
+    renderedTab: null
   };
 
   // DOM Elements Cache
@@ -471,6 +471,9 @@ import { createReaderController } from './reader.js';
     if (DOM.comicGrid && DOM.comicGrid.children.length > 0 && (state.renderedTab === tabKey || tabKey === 'latest')) {
       switchView('catalog');
       updateTabButtonsUI(tabKey);
+      if (tabKey === 'latest') {
+        setupPagination();
+      }
       if (DOM.serverSwitcherBar) {
         DOM.serverSwitcherBar.hidden = (tabKey !== 'latest');
       }
@@ -546,10 +549,14 @@ import { createReaderController } from './reader.js';
         state.catalogPage = targetPage;
         updateTabButtonsUI('latest');
         switchView('catalog');
+        if (DOM.comicGrid && DOM.comicGrid.children.length > 0 && targetPage === 1) {
+          setupPagination();
+        }
         loadLatestComics(targetPage, false);
       } else {
         switchView('catalog');
         updateTabButtonsUI('latest');
+        setupPagination();
         if (DOM.serverSwitcherBar) DOM.serverSwitcherBar.hidden = false;
       }
       return;
