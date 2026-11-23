@@ -349,8 +349,15 @@ def get_latest_manga(
                         SLUG_CACHE[s] = item["manga_id"]
         return res
     except Exception as err:
-        logger.error(f"Failed to fetch latest manga: {err}")
-        raise HTTPException(status_code=500, detail=str(err))
+        logger.warning(f"Failed to fetch latest manga from Shinigami, falling back to Komiku: {err}")
+        try:
+            res = komiku_client.list_latest(page=page, page_size=page_size)
+            if isinstance(res, dict) and isinstance(res.get("meta"), dict):
+                res["meta"]["fallback"] = "komiku"
+            return res
+        except Exception as k_err:
+            logger.error(f"Failed to fetch latest manga (both Shinigami and Komiku): {k_err}")
+            raise HTTPException(status_code=500, detail=str(err))
 
 
 @app.get("/api/search")
@@ -382,7 +389,78 @@ def search_manga_endpoint(
                         SLUG_CACHE[s] = item["manga_id"]
         return res
     except Exception as err:
-        logger.error(f"Search request failed: {err}")
+        logger.warning(f"Search request failed on Shinigami, falling back to Komiku: {err}")
+        try:
+            res = komiku_client.search_manga(query=q.strip(), page=page, page_size=page_size)
+            if isinstance(res, dict) and isinstance(res.get("meta"), dict):
+                res["meta"]["fallback"] = "komiku"
+            return res
+        except Exception as k_err:
+            logger.error(f"Search request failed (both Shinigami and Komiku): {k_err}")
+            raise HTTPException(status_code=500, detail=str(err))
+
+
+def _fallback_komiku_by_uuid_or_slug(identifier: str) -> Optional[Dict[str, Any]]:
+    """Attempts to load manga detail from Komiku using a slug or by looking up title from local DB."""
+    slug_candidate = None
+    if not is_uuid_string(identifier):
+        slug_candidate = identifier
+    else:
+        for item in get_watchlist(db_path=DEFAULT_DB_PATH) + get_history(limit=100, db_path=DEFAULT_DB_PATH):
+            if item.get("manga_id") == identifier and item.get("manga_title"):
+                slug_candidate = slugify(item["manga_title"])
+                break
+    if slug_candidate:
+        try:
+            return komiku_client.get_manga_detail(slug_candidate)
+        except Exception:
+            pass
+    return None
+
+
+def _fetch_shinigami_manga_with_fallback(
+    id: str,
+    page: Optional[int],
+    page_size: Optional[int],
+    sort_order: str,
+    all_chapters: bool,
+) -> Dict[str, Any]:
+    """Fetches manga detail and chapters from Shinigami, falling back to Komiku on upstream errors."""
+    try:
+        real_id = resolve_manga_identifier(id)
+        detail = client.get_manga_detail(real_id)
+        if isinstance(detail, dict) and "data" in detail and isinstance(detail["data"], dict):
+            title = detail["data"].get("title", "")
+            slug = slugify(title)
+            detail["data"]["slug"] = slug
+            if slug and real_id:
+                SLUG_CACHE[slug] = real_id
+            try:
+                if all_chapters and page is None and hasattr(client, "get_all_chapters"):
+                    chapters = client.get_all_chapters(real_id, sort_order=sort_order)
+                else:
+                    chapters = client.list_chapters(
+                        real_id, page=page or 1, page_size=page_size or 100, sort_order=sort_order
+                    )
+                detail["data"]["chapters"] = chapters.get("data", [])
+                detail["data"]["chapters_meta"] = chapters.get("meta", {})
+            except Exception as ch_err:
+                logger.warning(f"Failed to fetch chapters for manga {real_id}: {ch_err}")
+                if slug:
+                    try:
+                        k_detail = komiku_client.get_manga_detail(slug)
+                        k_chapters = k_detail.get("data", {}).get("chapters", [])
+                        if k_chapters:
+                            detail["data"]["chapters"] = k_chapters
+                            detail["data"]["chapters_fallback"] = "komiku"
+                    except Exception as k_err:
+                        logger.warning(f"Komiku chapter fallback failed for {slug}: {k_err}")
+        return detail
+    except Exception as err:
+        fallback = _fallback_komiku_by_uuid_or_slug(id)
+        if fallback:
+            return fallback
+        logger.error(f"Failed to fetch manga detail for {id}: {err}")
         raise HTTPException(status_code=500, detail=str(err))
 
 
@@ -404,71 +482,14 @@ def get_manga_endpoint(
             logger.warning(f"Komiku detail fetch failed for {id}: {k_err}")
             raise HTTPException(status_code=500, detail=str(k_err))
     elif chosen_server == "shinigami":
-        try:
-            real_id = resolve_manga_identifier(id)
-            detail = client.get_manga_detail(real_id)
-            try:
-                if all_chapters and page is None and hasattr(client, "get_all_chapters"):
-                    chapters = client.get_all_chapters(real_id, sort_order=sort_order)
-                else:
-                    chapters = client.list_chapters(
-                        real_id, page=page or 1, page_size=page_size or 100, sort_order=sort_order
-                    )
-                if isinstance(detail, dict) and "data" in detail and isinstance(detail["data"], dict):
-                    detail["data"]["chapters"] = chapters.get("data", [])
-                    detail["data"]["chapters_meta"] = chapters.get("meta", {})
-                    title = detail["data"].get("title", "")
-                    slug = slugify(title)
-                    detail["data"]["slug"] = slug
-                    if slug and real_id:
-                        SLUG_CACHE[slug] = real_id
-            except Exception as ch_err:
-                logger.warning(f"Failed to fetch chapters for manga {real_id}: {ch_err}")
-            return detail
-        except Exception as err:
-            if not is_uuid_string(id):
-                try:
-                    return komiku_client.get_manga_detail(id)
-                except Exception:
-                    pass
-            logger.error(f"Failed to fetch manga detail for {id}: {err}")
-            raise HTTPException(status_code=500, detail=str(err))
+        return _fetch_shinigami_manga_with_fallback(id, page, page_size, sort_order, all_chapters)
     else:
         if not is_uuid_string(id) and komiku_client._get_cached_manga_detail(id):
             try:
                 return komiku_client.get_manga_detail(id)
             except Exception:
                 pass
-
-        try:
-            real_id = resolve_manga_identifier(id)
-            detail = client.get_manga_detail(real_id)
-            try:
-                if all_chapters and page is None and hasattr(client, "get_all_chapters"):
-                    chapters = client.get_all_chapters(real_id, sort_order=sort_order)
-                else:
-                    chapters = client.list_chapters(
-                        real_id, page=page or 1, page_size=page_size or 100, sort_order=sort_order
-                    )
-                if isinstance(detail, dict) and "data" in detail and isinstance(detail["data"], dict):
-                    detail["data"]["chapters"] = chapters.get("data", [])
-                    detail["data"]["chapters_meta"] = chapters.get("meta", {})
-                    title = detail["data"].get("title", "")
-                    slug = slugify(title)
-                    detail["data"]["slug"] = slug
-                    if slug and real_id:
-                        SLUG_CACHE[slug] = real_id
-            except Exception as ch_err:
-                logger.warning(f"Failed to fetch chapters for manga {real_id}: {ch_err}")
-            return detail
-        except Exception as err:
-            if not is_uuid_string(id):
-                try:
-                    return komiku_client.get_manga_detail(id)
-                except Exception:
-                    pass
-            logger.error(f"Failed to fetch manga detail for {id}: {err}")
-            raise HTTPException(status_code=500, detail=str(err))
+        return _fetch_shinigami_manga_with_fallback(id, page, page_size, sort_order, all_chapters)
 
 
 @app.get("/api/chapter/{id}/pages")
