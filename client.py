@@ -15,7 +15,7 @@ class ShinigamiClient:
     """
     
     LANDING_URL = "https://shinigami.to/links.json"
-    DEFAULT_WEB_URL = "https://11.shinigami.asia"
+    DEFAULT_WEB_URL = "https://s1.shinigami.mx"
     API_BASE = "https://api.shngm.io/v1"
     
     def __init__(self, web_url: Optional[str] = None):
