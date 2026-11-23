@@ -6,6 +6,7 @@ Manages persistent storage for:
 - Download tasks
 """
 
+import json
 import os
 import sqlite3
 from typing import Any, Dict, List, Optional
@@ -74,6 +75,28 @@ def init_db(db_path: Optional[str] = None) -> None:
                     chapter_number REAL NOT NULL,
                     read_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     PRIMARY KEY (manga_id, chapter_id)
+                )
+                """
+            )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS shinigami_manga_cache (
+                    manga_id TEXT PRIMARY KEY,
+                    slug TEXT,
+                    title TEXT,
+                    detail_json TEXT NOT NULL,
+                    chapters_json TEXT,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS shinigami_pages_cache (
+                    chapter_id TEXT PRIMARY KEY,
+                    manga_id TEXT,
+                    pages_json TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
                 """
             )
@@ -384,5 +407,127 @@ def get_download(
         cur.execute("SELECT * FROM downloads WHERE chapter_id = ?", (ch_id,))
         row = cur.fetchone()
         return dict(row) if row else None
+    finally:
+        conn.close()
+
+
+def save_shinigami_pages(
+    chapter_id: str,
+    pages: List[str],
+    manga_id: str = "",
+    db_path: Optional[str] = None,
+) -> None:
+    """Persist permanent Shinigami chapter image URLs in SQLite."""
+    if not chapter_id or not pages:
+        return
+    conn = get_connection(db_path)
+    try:
+        with conn:
+            conn.execute(
+                """
+                INSERT INTO shinigami_pages_cache (chapter_id, manga_id, pages_json, created_at)
+                VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(chapter_id) DO UPDATE SET
+                    manga_id = COALESCE(NULLIF(excluded.manga_id, ''), shinigami_pages_cache.manga_id),
+                    pages_json = excluded.pages_json
+                """,
+                (chapter_id, manga_id, json.dumps(pages)),
+            )
+    finally:
+        conn.close()
+
+
+def get_shinigami_pages(
+    chapter_id: str, db_path: Optional[str] = None
+) -> Optional[List[str]]:
+    """Retrieve cached Shinigami chapter image URLs from SQLite."""
+    if not chapter_id:
+        return None
+    conn = get_connection(db_path)
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT pages_json FROM shinigami_pages_cache WHERE chapter_id = ?",
+            (chapter_id,),
+        )
+        row = cur.fetchone()
+        if row and row["pages_json"]:
+            parsed = json.loads(row["pages_json"])
+            if isinstance(parsed, list) and len(parsed) > 0:
+                return parsed
+        return None
+    except Exception:
+        return None
+    finally:
+        conn.close()
+
+
+def save_shinigami_manga_cache(
+    manga_id: str,
+    slug: str,
+    title: str,
+    detail_data: Dict[str, Any],
+    chapters_data: Optional[List[Dict[str, Any]]] = None,
+    db_path: Optional[str] = None,
+) -> None:
+    """Persist Shinigami manga detail and chapter list in SQLite for offline/outage resilience."""
+    if not manga_id or not detail_data:
+        return
+    conn = get_connection(db_path)
+    try:
+        with conn:
+            conn.execute(
+                """
+                INSERT INTO shinigami_manga_cache (
+                    manga_id, slug, title, detail_json, chapters_json, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(manga_id) DO UPDATE SET
+                    slug = COALESCE(NULLIF(excluded.slug, ''), shinigami_manga_cache.slug),
+                    title = COALESCE(NULLIF(excluded.title, ''), shinigami_manga_cache.title),
+                    detail_json = excluded.detail_json,
+                    chapters_json = COALESCE(excluded.chapters_json, shinigami_manga_cache.chapters_json),
+                    updated_at = CURRENT_TIMESTAMP
+                """,
+                (
+                    manga_id,
+                    slug,
+                    title,
+                    json.dumps(detail_data),
+                    json.dumps(chapters_data) if chapters_data is not None else None,
+                ),
+            )
+    finally:
+        conn.close()
+
+
+def get_shinigami_manga_cache(
+    identifier: str, db_path: Optional[str] = None
+) -> Optional[Dict[str, Any]]:
+    """Retrieve cached Shinigami manga detail and chapters by UUID or slug."""
+    if not identifier:
+        return None
+    conn = get_connection(db_path)
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT detail_json, chapters_json
+            FROM shinigami_manga_cache
+            WHERE manga_id = ? OR slug = ?
+            LIMIT 1
+            """,
+            (identifier, identifier),
+        )
+        row = cur.fetchone()
+        if not row or not row["detail_json"]:
+            return None
+        detail = json.loads(row["detail_json"])
+        if isinstance(detail, dict) and "data" in detail and isinstance(detail["data"], dict):
+            if row["chapters_json"] and not detail["data"].get("chapters"):
+                detail["data"]["chapters"] = json.loads(row["chapters_json"])
+        return detail
+    except Exception:
+        return None
     finally:
         conn.close()

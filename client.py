@@ -2,6 +2,7 @@ import urllib.request
 import urllib.parse
 import json
 import re
+import threading
 import logging
 from typing import Dict, List, Optional, Any
 
@@ -20,14 +21,27 @@ class ShinigamiClient:
     API_BASE = DEFAULT_API_BASE
     
     def __init__(self, web_url: Optional[str] = None, api_base: Optional[str] = None):
-        self.web_url = web_url or self.resolve_active_domain()
-        self.api_base = api_base or self.resolve_api_base()
+        self.web_url = web_url or self.DEFAULT_WEB_URL
+        self.api_base = api_base or self.DEFAULT_API_BASE
         self.headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             "Origin": self.web_url,
             "Referer": f"{self.web_url}/",
             "Accept": "application/json, text/plain, */*"
         }
+        self._resolve_lock = threading.Lock()
+        if web_url is None and api_base is None:
+            threading.Thread(target=self.refresh_endpoints, daemon=True).start()
+
+    def refresh_endpoints(self) -> None:
+        """Memperbarui web_url dan api_base aktif dari shinigami.to dan bundle JS."""
+        with self._resolve_lock:
+            new_web = self.resolve_active_domain()
+            self.web_url = new_web
+            self.headers["Origin"] = new_web
+            self.headers["Referer"] = f"{new_web}/"
+            new_api = self.resolve_api_base()
+            self.api_base = new_api
 
     def resolve_active_domain(self) -> str:
         """Mendapatkan link domain aktif saat ini dari shinigami.to"""
@@ -58,7 +72,6 @@ class ShinigamiClient:
                 js_req = urllib.request.Request(script_url, headers={"User-Agent": "Mozilla/5.0"})
                 with urllib.request.urlopen(js_req, timeout=10) as js_res:
                     js_text = js_res.read().decode("utf-8", errors="ignore")
-                # Match default API base URL pattern in bundle, excluding staging/dev hosts
                 api_match = re.search(r'default\s*:\s*["\'](https://api\.[^"\'\s/]+/v\d+)["\']', js_text)
                 if api_match:
                     resolved = api_match.group(1).rstrip("/")
@@ -68,7 +81,7 @@ class ShinigamiClient:
             logger.warning(f"Gagal ekstrak API base dari {self.web_url} ({e}), memakai default {self.DEFAULT_API_BASE}")
         return self.DEFAULT_API_BASE
 
-    def _get(self, endpoint: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def _get(self, endpoint: str, params: Optional[Dict[str, Any]] = None, _retried: bool = False) -> Dict[str, Any]:
         url = f"{self.api_base}/{endpoint.lstrip('/')}"
         if params:
             url += f"?{urllib.parse.urlencode(params)}"
@@ -79,9 +92,15 @@ class ShinigamiClient:
                 return json.loads(res.read().decode("utf-8"))
         except urllib.error.HTTPError as e:
             err_body = e.read().decode("utf-8", errors="ignore")
+            if e.code >= 500 and not _retried:
+                self.refresh_endpoints()
+                return self._get(endpoint, params=params, _retried=True)
             logger.error(f"HTTP {e.code} on {url}: {err_body}")
             raise RuntimeError(f"API Error {e.code}: {err_body}")
         except Exception as e:
+            if not _retried:
+                self.refresh_endpoints()
+                return self._get(endpoint, params=params, _retried=True)
             logger.error(f"Request failed on {url}: {e}")
             raise
 

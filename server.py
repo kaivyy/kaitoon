@@ -45,6 +45,10 @@ from kaitoon.db import (
     mark_chapter_read,
     mark_all_chapters_read,
     get_read_chapters,
+    save_shinigami_pages,
+    get_shinigami_pages,
+    save_shinigami_manga_cache,
+    get_shinigami_manga_cache,
 )
 from kaitoon.downloader import package_chapter_cbz
 
@@ -395,7 +399,7 @@ def _fetch_shinigami_manga(
     sort_order: str,
     all_chapters: bool,
 ) -> Dict[str, Any]:
-    """Fetches manga detail and chapters strictly from Shinigami."""
+    """Fetches manga detail and chapters strictly from Shinigami with SQLite cache backup."""
     try:
         real_id = resolve_manga_identifier(id)
         detail = client.get_manga_detail(real_id)
@@ -405,6 +409,7 @@ def _fetch_shinigami_manga(
             detail["data"]["slug"] = slug
             if slug and real_id:
                 SLUG_CACHE[slug] = real_id
+            chapters_list: Optional[List[Dict[str, Any]]] = None
             try:
                 if all_chapters and page is None and hasattr(client, "get_all_chapters"):
                     chapters = client.get_all_chapters(real_id, sort_order=sort_order)
@@ -412,12 +417,31 @@ def _fetch_shinigami_manga(
                     chapters = client.list_chapters(
                         real_id, page=page or 1, page_size=page_size or 100, sort_order=sort_order
                     )
-                detail["data"]["chapters"] = chapters.get("data", [])
+                chapters_list = chapters.get("data", [])
+                detail["data"]["chapters"] = chapters_list
                 detail["data"]["chapters_meta"] = chapters.get("meta", {})
             except Exception as ch_err:
                 logger.warning(f"Failed to fetch chapters for manga {real_id}: {ch_err}")
+                cached = get_shinigami_manga_cache(real_id, db_path=DEFAULT_DB_PATH)
+                if cached and cached.get("data", {}).get("chapters"):
+                    detail["data"]["chapters"] = cached["data"]["chapters"]
+            try:
+                save_shinigami_manga_cache(
+                    manga_id=real_id,
+                    slug=slug,
+                    title=title,
+                    detail_data=detail,
+                    chapters_data=chapters_list,
+                    db_path=DEFAULT_DB_PATH,
+                )
+            except Exception as cache_err:
+                logger.warning(f"Failed to save Shinigami manga cache for {real_id}: {cache_err}")
         return detail
     except Exception as err:
+        cached = get_shinigami_manga_cache(id, db_path=DEFAULT_DB_PATH)
+        if cached:
+            logger.info(f"Serving Shinigami manga {id} from SQLite cache due to upstream error: {err}")
+            return cached
         logger.error(f"Failed to fetch manga detail for {id}: {err}")
         raise HTTPException(status_code=500, detail=str(err))
 
@@ -478,8 +502,24 @@ def get_chapter_pages_endpoint(
             if chosen_server == "komiku":
                 raise HTTPException(status_code=500, detail=str(k_err))
 
+    cached_pages = get_shinigami_pages(id, db_path=DEFAULT_DB_PATH)
+    if cached_pages:
+        return {
+            "chapter_id": id,
+            "pages": cached_pages,
+            "data": cached_pages,
+            "total": len(cached_pages),
+            "server": "shinigami",
+            "cached": True,
+        }
+
     try:
         urls = client.get_chapter_image_urls(id)
+        if urls:
+            try:
+                save_shinigami_pages(id, urls, db_path=DEFAULT_DB_PATH)
+            except Exception as cache_err:
+                logger.warning(f"Failed to cache Shinigami pages for {id}: {cache_err}")
         return {
             "chapter_id": id,
             "pages": urls,
