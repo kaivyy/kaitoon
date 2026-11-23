@@ -35,7 +35,9 @@ class ShinigamiClient:
                 links = json.loads(res.read().decode("utf-8"))
                 for link in links:
                     if "website" in link.get("title", "").lower() or link.get("icon") == "globe":
-                        active_url = link.get("href", "").rstrip("/")
+                        raw_href = link.get("href", "").strip()
+                        parsed = urllib.parse.urlparse(raw_href)
+                        active_url = f"{parsed.scheme}://{parsed.netloc}" if parsed.scheme and parsed.netloc else raw_href.rstrip("/")
                         logger.info(f"Resolved active Shinigami domain: {active_url}")
                         return active_url
         except Exception as e:

@@ -56,7 +56,7 @@ os.makedirs(STATIC_DIR, exist_ok=True)
 DOWNLOADS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "downloads")
 os.makedirs(DOWNLOADS_DIR, exist_ok=True)
 
-client = ShinigamiClient(web_url="https://s1.shinigami.mx")
+client = ShinigamiClient()
 komiku_client = KomikuClient(db_path=DEFAULT_DB_PATH)
 
 
