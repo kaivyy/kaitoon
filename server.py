@@ -298,10 +298,12 @@ def resolve_manga_identifier(identifier: str) -> str:
                     SLUG_CACHE[slug] = m_id
                     return m_id
         if items:
-            fallback_id = items[0].get("manga_id")
-            if fallback_id:
-                SLUG_CACHE[slug] = fallback_id
-                return fallback_id
+            first_slug = slugify(items[0].get("title", ""))
+            if first_slug and (slug in first_slug or first_slug in slug):
+                fallback_id = items[0].get("manga_id")
+                if fallback_id:
+                    SLUG_CACHE[slug] = fallback_id
+                    return fallback_id
     except Exception as s_err:
         logger.warning(f"API search resolution for slug {slug} failed: {s_err}")
 
